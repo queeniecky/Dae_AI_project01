@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件管理系統 - 文件管理</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen" id="body">
+  <nav class="bg-blue-600 p-4 flex justify-between">
+    <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+    <div class="flex space-x-4">
+      <a href="/dashboard" class="text-white hover:underline">文件管理</a>
+      <a href="/settings" class="text-white hover:underline">個人化設置</a>
+      <a href="/logout" class="text-white hover:underline">登出</a>
+    </div>
+  </nav>
+  <div class="max-w-4xl mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
+    <h2 class="text-2xl font-bold mb-4">文件管理</h2>
+    <div class="mb-4">
+      <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput" class="mb-4">
+        <button type="submit" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">上傳</button>
+      </form>
+      <input type="text" id="searchInput" placeholder="搜尋文件名稱..." class="w-full p-2 border rounded mt-4">
+      <input type="text" id="aiSearchInput" placeholder="AI 搜尋文件內容..." class="w-full p-2 border rounded mt-2">
+      <button onclick="aiSearch()" class="bg-blue-600 text-white p-2 rounded mt-2 hover:bg-blue-700">AI 搜尋</button>
+    </div>
+    <div id="fileList" class="grid gap-4"></div>
+    <div class="mt-6">
+      <h3 class="text-xl font-bold mb-2">推薦文件</h3>
+      <div id="recommendations" class="grid gap-4"></div>
+    </div>
+  </div>
+  <script>
+    // Validate file selection before submission
+    document.getElementById('uploadForm').addEventListener('submit', (e) => {
+      const fileInput = document.getElementById('fileInput');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        e.preventDefault();
+        alert('請選擇一個文件進行上傳');
+      }
+    });
+
+    function renderFiles(files, theme) {
+      document.getElementById('body').className = 'min-h-screen ' + (theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black');
+      const fileList = document.getElementById('fileList');
+      fileList.innerHTML = '';
+      if (files.length === 0) {
+        fileList.innerHTML = '<p class="text-sm">無搜尋結果</p>';
+        return;
+      }
+      files.forEach(file => {
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'border p-4 rounded flex justify-between items-center';
+        fileDiv.innerHTML = `
+          <div>
+            <h3 class="font-bold">${file.name}</h3>
+            <p class="text-sm">擁有者: ${file.owner}</p>
+            <p class="text-sm">共享給: ${file.shared_with.join(', ') || '無'}</p>
+            ${file.similarity ? `<p class="text-sm">相似度: ${(file.similarity * 100).toFixed(2)}%</p>` : ''}
+          </div>
+          <div class="flex space-x-2">
+            <button onclick="openShare(${file.id})" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700" ${file.owner_id !== file.current_user_id ? 'disabled' : ''}>共享</button>
+            <button onclick="deleteFile(${file.id})" class="bg-red-600 text-white p-2 rounded hover:bg-red-700" ${file.owner_id !== file.current_user_id ? 'disabled' : ''}>刪除</button>
+            <a href="/download/${file.id}" class="bg-green-600 text-white p-2 rounded hover:bg-green-700">下載</a>
+          </div>
+          <div id="share-${file.id}" class="mt-2 hidden">
+            <input type="text" id="shareUsername-${file.id}" placeholder="輸入用戶名進行共享" class="p-2 border rounded mr-2">
+            <button onclick="shareFile(${file.id})" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">確認共享</button>
+          </div>
+        `;
+        fileList.appendChild(fileDiv);
+      });
+    }
+
+    function renderRecommendations(files, theme) {
+      const recList = document.getElementById('recommendations');
+      recList.innerHTML = '';
+      if (files.length === 0) {
+        recList.innerHTML = '<p class="text-sm">暫無推薦文件</p>';
+        return;
+      }
+      files.forEach(file => {
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'border p-4 rounded flex justify-between items-center';
+        fileDiv.innerHTML = `
+          <div>
+            <h3 class="font-bold">${file.name}</h3>
+            <p class="text-sm">相似度: ${(file.similarity * 100).toFixed(2)}%</p>
+          </div>
+          <a href="/download/${file.id}" class="bg-green-600 text-white p-2 rounded hover:bg-green-700">下載</a>
+        `;
+        recList.appendChild(fileDiv);
+      });
+    }
+
+    function openShare(fileId) {
+      document.getElementById(`share-${fileId}`).classList.toggle('hidden');
+    }
+
+    async function shareFile(fileId) {
+      const username = document.getElementById(`shareUsername-${fileId}`).value;
+      const response = await fetch('/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_id: fileId, username })
+      });
+      const result = await response.json();
+      if (result.error) {
+        alert(result.error);
+      } else {
+        fetchFiles();
+      }
+    }
+
+    async function deleteFile(fileId) {
+      const response = await fetch('/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_id: fileId })
+      });
+      const result = await response.json();
+      if (result.error) {
+        alert(result.error);
+      } else {
+        fetchFiles();
+      }
+    }
+
+    async function fetchFiles(searchQuery = '') {
+      const response = await fetch(`/files?search=${searchQuery}`);
+      const data = await response.json();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        renderFiles(data.files, data.theme);
+      }
+    }
+
+    async function aiSearch() {
+      const query = document.getElementById('aiSearchInput').value;
+      if (!query) {
+        alert('請輸入搜尋內容');
+        return;
+      }
+      const response = await fetch('/ai_search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      const result = await response.json();
+      console.log('AI Search Response:', result); // 調試日誌
+      if (result.error) {
+        alert(result.error);
+      } else {
+        renderFiles(result.files, result.theme);
+      }
+    }
+
+    async function fetchRecommendations() {
+      const response = await fetch('/recommend');
+      const result = await response.json();
+      console.log('Recommendations Response:', result); // 調試日誌
+      if (result.error) {
+        alert(result.error);
+      } else {
+        renderRecommendations(result.files, result.theme);
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      fetchFiles(e.target.value);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchFiles();
+      fetchRecommendations();
+    });
+  </script>
+</body>
+</html>

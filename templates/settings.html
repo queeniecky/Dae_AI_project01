@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件管理系統 - 個人化設置</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen" id="body">
+  <nav class="bg-blue-600 p-4 flex justify-between">
+    <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+    <div class="flex space-x-4">
+      <a href="/dashboard" class="text-white hover:underline">文件管理</a>
+      <a href="/settings" class="text-white hover:underline">個人化設置</a>
+      <a href="/logout" class="text-white hover:underline">登出</a>
+    </div>
+  </nav>
+  <div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
+    <h2 class="text-2xl font-bold mb-4">個人化設置</h2>
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-1">主題</label>
+      <select id="theme" class="w-full p-2 border rounded">
+        <option value="light">淺色</option>
+        <option value="dark">深色</option>
+      </select>
+    </div>
+    <button id="saveSettings" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">保存設置</button>
+  </div>
+  <script>
+    async function loadSettings() {
+      const response = await fetch('/settings');
+      const data = await response.json();
+      document.getElementById('body').className = 'min-h-screen ' + (data.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black');
+      document.getElementById('theme').value = data.theme;
+    }
+
+    document.getElementById('saveSettings').addEventListener('click', async () => {
+      const theme = document.getElementById('theme').value;
+      const response = await fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme })
+      });
+      const result = await response.json();
+      if (result.error) {
+        alert(result.error);
+      } else {
+        document.getElementById('body').className = 'min-h-screen ' + (theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black');
+      }
+    });
+
+    loadSettings();
+  </script>
+</body>
+</html>
