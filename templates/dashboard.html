@@ -4,36 +4,50 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>文件管理系統 - 文件管理</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"></script> <!-- 引入 Tailwind CSS，用於快速樣式設計 -->
 </head>
 <body class="min-h-screen" id="body">
   <nav class="bg-blue-600 p-4 flex justify-between">
     <h1 class="text-white text-xl font-bold">文件管理系統</h1>
     <div class="flex space-x-4">
-      <a href="/dashboard" class="text-white hover:underline">文件管理</a>
-      <a href="/settings" class="text-white hover:underline">個人化設置</a>
-      <a href="/logout" class="text-white hover:underline">登出</a>
+      <a href="/dashboard" class="text-white hover:underline">文件管理</a> <!-- 主頁面連結 -->
+      <a href="/settings" class="text-white hover:underline">個人化設置</a> <!-- 個人設定頁面 -->
+      <a href="/logout" class="text-white hover:underline">登出</a> <!-- 登出操作 -->
     </div>
   </nav>
+
   <div class="max-w-4xl mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
     <h2 class="text-2xl font-bold mb-4">文件管理</h2>
+
     <div class="mb-4">
+      <!-- 上傳文件表單，提交到 /upload，支持 multipart/form-data -->
       <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" id="fileInput" class="mb-4">
-        <button type="submit" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">上傳</button>
+        <input type="file" name="file" id="fileInput" class="mb-4"> <!-- 文件選擇 -->
+        <button type="submit" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">上傳</button> <!-- 上傳按鈕 -->
       </form>
+
+      <!-- 搜尋文件名稱的輸入框 -->
       <input type="text" id="searchInput" placeholder="搜尋文件名稱..." class="w-full p-2 border rounded mt-4">
+
+      <!-- AI 搜尋文件內容的輸入框 -->
       <input type="text" id="aiSearchInput" placeholder="AI 搜尋文件內容..." class="w-full p-2 border rounded mt-2">
+
+      <!-- 觸發 AI 搜尋的按鈕 -->
       <button onclick="aiSearch()" class="bg-blue-600 text-white p-2 rounded mt-2 hover:bg-blue-700">AI 搜尋</button>
     </div>
+
+    <!-- 列出搜尋或載入的文件清單 -->
     <div id="fileList" class="grid gap-4"></div>
+
     <div class="mt-6">
       <h3 class="text-xl font-bold mb-2">推薦文件</h3>
+      <!-- 系統推薦的相關文件列表 -->
       <div id="recommendations" class="grid gap-4"></div>
     </div>
   </div>
+
   <script>
-    // Validate file selection before submission
+    // 上傳表單提交前檢查是否選擇文件，未選擇則阻止提交並提示
     document.getElementById('uploadForm').addEventListener('submit', (e) => {
       const fileInput = document.getElementById('fileInput');
       if (!fileInput.files || fileInput.files.length === 0) {
@@ -42,14 +56,24 @@
       }
     });
 
+    /**
+     * 動態渲染文件清單
+     * @param {Array} files - 文件資料陣列
+     * @param {string} theme - 主題風格，dark 或 light
+     */
     function renderFiles(files, theme) {
+      // 根據主題設定 body 背景與文字顏色
       document.getElementById('body').className = 'min-h-screen ' + (theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black');
       const fileList = document.getElementById('fileList');
       fileList.innerHTML = '';
+
+      // 無檔案時顯示提示文字
       if (files.length === 0) {
         fileList.innerHTML = '<p class="text-sm">無搜尋結果</p>';
         return;
       }
+
+      // 逐一建立文件區塊
       files.forEach(file => {
         const fileDiv = document.createElement('div');
         fileDiv.className = 'border p-4 rounded flex justify-between items-center';
@@ -61,10 +85,12 @@
             ${file.similarity ? `<p class="text-sm">相似度: ${(file.similarity * 100).toFixed(2)}%</p>` : ''}
           </div>
           <div class="flex space-x-2">
+            <!-- 只有檔案擁有者可使用共享和刪除按鈕 -->
             <button onclick="openShare(${file.id})" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700" ${file.owner_id !== file.current_user_id ? 'disabled' : ''}>共享</button>
             <button onclick="deleteFile(${file.id})" class="bg-red-600 text-white p-2 rounded hover:bg-red-700" ${file.owner_id !== file.current_user_id ? 'disabled' : ''}>刪除</button>
             <a href="/download/${file.id}" class="bg-green-600 text-white p-2 rounded hover:bg-green-700">下載</a>
           </div>
+          <!-- 共享輸入區塊，預設隱藏 -->
           <div id="share-${file.id}" class="mt-2 hidden">
             <input type="text" id="shareUsername-${file.id}" placeholder="輸入用戶名進行共享" class="p-2 border rounded mr-2">
             <button onclick="shareFile(${file.id})" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">確認共享</button>
@@ -74,13 +100,20 @@
       });
     }
 
+    /**
+     * 動態渲染推薦文件清單
+     * @param {Array} files - 推薦文件資料陣列
+     * @param {string} theme - 主題風格
+     */
     function renderRecommendations(files, theme) {
       const recList = document.getElementById('recommendations');
       recList.innerHTML = '';
+
       if (files.length === 0) {
         recList.innerHTML = '<p class="text-sm">暫無推薦文件</p>';
         return;
       }
+
       files.forEach(file => {
         const fileDiv = document.createElement('div');
         fileDiv.className = 'border p-4 rounded flex justify-between items-center';
@@ -95,10 +128,15 @@
       });
     }
 
+    // 切換共享輸入區塊顯示與隱藏
     function openShare(fileId) {
       document.getElementById(`share-${fileId}`).classList.toggle('hidden');
     }
 
+    /**
+     * 發送共享請求給後端
+     * @param {number} fileId - 文件 ID
+     */
     async function shareFile(fileId) {
       const username = document.getElementById(`shareUsername-${fileId}`).value;
       const response = await fetch('/share', {
@@ -107,13 +145,18 @@
         body: JSON.stringify({ file_id: fileId, username })
       });
       const result = await response.json();
+
       if (result.error) {
         alert(result.error);
       } else {
-        fetchFiles();
+        fetchFiles(); // 共享成功後重新載入文件清單
       }
     }
 
+    /**
+     * 發送刪除文件請求
+     * @param {number} fileId - 文件 ID
+     */
     async function deleteFile(fileId) {
       const response = await fetch('/delete', {
         method: 'POST',
@@ -121,16 +164,22 @@
         body: JSON.stringify({ file_id: fileId })
       });
       const result = await response.json();
+
       if (result.error) {
         alert(result.error);
       } else {
-        fetchFiles();
+        fetchFiles(); // 刪除成功後重新載入文件清單
       }
     }
 
+    /**
+     * 根據搜尋字串從後端獲取文件清單，並渲染
+     * @param {string} searchQuery - 搜尋關鍵字
+     */
     async function fetchFiles(searchQuery = '') {
       const response = await fetch(`/files?search=${searchQuery}`);
       const data = await response.json();
+
       if (data.error) {
         alert(data.error);
       } else {
@@ -138,12 +187,16 @@
       }
     }
 
+    /**
+     * AI 搜尋文件內容，向後端發送查詢並渲染結果
+     */
     async function aiSearch() {
       const query = document.getElementById('aiSearchInput').value;
       if (!query) {
         alert('請輸入搜尋內容');
         return;
       }
+
       const response = await fetch('/ai_search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -151,6 +204,7 @@
       });
       const result = await response.json();
       console.log('AI Search Response:', result); // 調試日誌
+
       if (result.error) {
         alert(result.error);
       } else {
@@ -158,10 +212,14 @@
       }
     }
 
+    /**
+     * 向後端請求推薦文件，並渲染推薦列表
+     */
     async function fetchRecommendations() {
       const response = await fetch('/recommend');
       const result = await response.json();
       console.log('Recommendations Response:', result); // 調試日誌
+
       if (result.error) {
         alert(result.error);
       } else {
@@ -169,10 +227,12 @@
       }
     }
 
+    // 監聽搜尋框輸入事件，實時搜尋文件名稱
     document.getElementById('searchInput').addEventListener('input', (e) => {
       fetchFiles(e.target.value);
     });
 
+    // 頁面載入完成後，初始化載入文件清單與推薦文件
     document.addEventListener('DOMContentLoaded', () => {
       fetchFiles();
       fetchRecommendations();
