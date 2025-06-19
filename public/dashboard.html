@@ -103,8 +103,15 @@
             return;
           }
 
+          const file = fileInput.files[0];
+          console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
+          if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            alert('文件大小超過10MB限制');
+            return;
+          }
+
           const formData = new FormData();
-          formData.append('file', fileInput.files[0]);
+          formData.append('file', file);
 
           try {
             const response = await fetch('http://localhost:3000/api/upload', {
@@ -113,16 +120,18 @@
               body: formData
             });
             const data = await response.json();
+            console.log('Server response:', data);
             if (response.ok) {
               alert(data.message);
               uploadForm.reset();
               fetchRecommendations();
               fetchUploadedFiles();
-              fetchPublicFiles(); // Refresh public files after upload
+              fetchPublicFiles();
             } else {
               alert(data.error);
             }
           } catch (error) {
+            console.error('Upload error:', error);
             alert('網絡錯誤');
           }
         });
@@ -161,6 +170,7 @@
             alert(data.error);
           }
         } catch (error) {
+          console.error('AI search error:', error);
           alert('網絡錯誤');
         }
       }
@@ -201,10 +211,10 @@
           if (response.ok) {
             renderUploadedFiles(data.files);
           } else {
-            console.error(data.error);
+            console.error('My files error:', data.error);
           }
         } catch (error) {
-          console.error('網絡錯誤');
+          console.error('My files network error:', error);
         }
       }
 
@@ -236,14 +246,12 @@
           `;
           uploadedFiles.appendChild(li);
 
-          // Bind event listeners
           li.querySelector('.delete-btn').addEventListener('click', () => deleteFile(file.id));
           li.querySelector('.rename-btn').addEventListener('click', () => renameFile(file.id, file.name));
           li.querySelector('.share-btn').addEventListener('click', () => toggleShareAll(file.id, file.shared_with_all));
         });
       }
 
-      // Delete file
       async function deleteFile(fileId) {
         if (!confirm('確定要刪除此文件嗎？')) return;
         const token = localStorage.getItem('token');
@@ -262,16 +270,16 @@
           if (response.ok) {
             alert(data.message);
             fetchUploadedFiles();
-            fetchPublicFiles(); // Refresh public files after deletion
+            fetchPublicFiles();
           } else {
             alert(data.error);
           }
         } catch (error) {
+          console.error('Delete file error:', error);
           alert('網絡錯誤');
         }
       }
 
-      // Rename file
       async function renameFile(fileId, currentName) {
         const newName = prompt('輸入新文件名：', currentName);
         if (!newName || newName === currentName) return;
@@ -295,16 +303,16 @@
           if (response.ok) {
             alert(data.message);
             fetchUploadedFiles();
-            fetchPublicFiles(); // Refresh public files after rename
+            fetchPublicFiles();
           } else {
             alert(data.error);
           }
         } catch (error) {
+          console.error('Rename file error:', error);
           alert('網絡錯誤');
         }
       }
 
-      // Toggle share with all
       async function toggleShareAll(fileId, currentStatus) {
         const action = currentStatus ? '取消公開共享' : '公開共享';
         if (!confirm(`確定要${action}此文件嗎？`)) return;
@@ -324,16 +332,16 @@
           if (response.ok) {
             alert(data.message);
             fetchUploadedFiles();
-            fetchPublicFiles(); // Refresh public files after share toggle
+            fetchPublicFiles();
           } else {
             alert(data.error);
           }
         } catch (error) {
+          console.error('Share file error:', error);
           alert('網絡錯誤');
         }
       }
 
-      // Fetch public files
       async function fetchPublicFiles() {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -346,14 +354,13 @@
           if (response.ok) {
             renderPublicFiles(data.files);
           } else {
-            console.error(data.error);
+            console.error('Public files error:', data.error);
           }
         } catch (error) {
-          console.error('網絡錯誤');
+          console.error('Public files network error:', error);
         }
       }
 
-      // Render public files
       function renderPublicFiles(files) {
         const publicSharedFiles = document.getElementById('publicSharedFiles');
         publicSharedFiles.innerHTML = '';
@@ -374,7 +381,6 @@
         });
       }
 
-      // Fetch recommendations
       async function fetchRecommendations() {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -387,14 +393,13 @@
           if (response.ok) {
             renderRecommendations(data.results);
           } else {
-            console.error(data.error);
+            console.error('Recommendations error:', data.error);
           }
         } catch (error) {
-          console.error('網絡錯誤');
+          console.error('Recommendations network error:', error);
         }
       }
 
-      // Render recommendations
       function renderRecommendations(results) {
         const recommendedFiles = document.getElementById('recommendedFiles');
         recommendedFiles.innerHTML = '';
@@ -416,7 +421,6 @@
         });
       }
 
-      // Show protected content
       async function showProtectedContent() {
         const token = localStorage.getItem('token');
         if (!token || !protectedContent) return;
@@ -436,20 +440,20 @@
             }
             fetchRecommendations();
             fetchUploadedFiles();
-            fetchPublicFiles(); // Load public files on page load
+            fetchPublicFiles();
           } else {
             localStorage.removeItem('token');
             document.getElementById('welcomeContent')?.classList.remove('hidden');
             protectedContent.classList.add('hidden');
           }
         } catch (error) {
+          console.error('Protected content error:', error);
           localStorage.removeItem('token');
           document.getElementById('welcomeContent')?.classList.remove('hidden');
           protectedContent.classList.add('hidden');
         }
       }
 
-      // Check token on page load
       if (window.location.pathname === '/dashboard.html') {
         showProtectedContent();
       }

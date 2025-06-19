@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const protectedContent = document.getElementById('protectedContent');
   const updateEmailForm = document.getElementById('updateEmailForm');
 
-  // Register form submission
   if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify({ username, email, password })
         });
         const data = await response.json();
-        
+        console.log('Register response:', data);
         if (response.ok) {
           alert(data.message);
           registerForm.reset();
@@ -29,12 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
           alert(data.error);
         }
       } catch (error) {
+        console.error('Register error:', error);
         alert('網絡錯誤');
       }
     });
   }
 
-  // Login form submission
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -48,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify({ username, password })
         });
         const data = await response.json();
-
+        console.log('Login response:', data);
         if (response.ok) {
           localStorage.setItem('token', data.token);
           window.location.href = data.redirectTo || '/dashboard.html';
@@ -56,12 +55,12 @@ document.addEventListener('DOMContentLoaded', () => {
           alert(data.error);
         }
       } catch (error) {
+        console.error('Login error:', error);
         alert('網絡錯誤');
       }
     });
   }
 
-  // Update email form submission
   if (updateEmailForm) {
     updateEmailForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -84,21 +83,21 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify({ email: newEmail })
         });
         const data = await response.json();
-
+        console.log('Update email response:', data);
         if (response.ok) {
           alert(data.message);
           updateEmailForm.reset();
-          showProtectedContent(); // Refresh user info
+          showProtectedContent();
         } else {
           alert(data.error);
         }
       } catch (error) {
+        console.error('Update email error:', error);
         alert('網絡錯誤');
       }
     });
   }
 
-  // Logout
   if (logout) {
     logout.addEventListener('click', () => {
       localStorage.removeItem('token');
@@ -106,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Show protected content (for index.html and dashboard.html)
   async function showProtectedContent() {
     const token = localStorage.getItem('token');
     if (!token || !protectedContent) return;
@@ -116,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-
+      console.log('Protected content response:', data);
       if (response.ok) {
         document.getElementById('welcomeContent')?.classList.add('hidden');
         protectedContent.classList.remove('hidden');
@@ -132,13 +130,13 @@ document.addEventListener('DOMContentLoaded', () => {
         protectedContent.classList.add('hidden');
       }
     } catch (error) {
+      console.error('Protected content error:', error);
       localStorage.removeItem('token');
       document.getElementById('welcomeContent')?.classList.remove('hidden');
       protectedContent.classList.add('hidden');
     }
   }
 
-  // Check token on page load (for index.html and dashboard.html)
   if (window.location.pathname === '/index.html' || window.location.pathname === '/' || window.location.pathname === '/dashboard.html') {
     showProtectedContent();
   }
