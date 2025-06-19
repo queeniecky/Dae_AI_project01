@@ -12,14 +12,14 @@ python app.py
 
 # AI功能介紹
 ## AI 內容搜尋(AI Search)
-能查出有可能相關的文件, 僅適用於文件(e.g. txt)
+能查出有可能相關的文件, 僅適用於文件(e.g. txt/pdf)
 例子: AI搜尋時輸入cat, 會得出以下結果
 Dog.txt
 擁有者: sam
 共享給: 無
 相似度: 19.49%
 ## 文件推薦(Recommendation)
-上載最新文件時, 會自動推薦較相似的文件(e.g. txt)
+上載最新文件時, 會自動推薦較相似的文件(e.g. txt/pdf)
 例子: 上載W Gundam.txt, 會得出以下結果
 Gundam.txt
 相似度: 81.86%

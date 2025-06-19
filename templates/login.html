@@ -7,23 +7,44 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-gray-100">
-  <nav class="bg-blue-600 p-4">
-    <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+  <nav class="bg-blue-600 p-4 shadow-md">
+    <div class="max-w-5xl mx-auto">
+      <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+    </div>
   </nav>
-  <div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
-    <h2 class="text-2xl font-bold mb-4 text-center">登入</h2>
-    <form action="/login" method="POST">
+  <div class="max-w-md mx-auto mt-16 p-6 bg-white rounded-lg shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-center">登入</h2>
+    <form action="/login" method="POST" id="loginForm">
+      <div id="error" class="hidden text-red-600 text-sm mb-4"></div>
       <div class="mb-4">
         <label class="block text-sm font-medium mb-1">用戶名</label>
-        <input type="text" name="username" class="w-full p-2 border rounded" required>
+        <input type="text" name="username" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
       </div>
-      <div class="mb-4">
+      <div class="mb-6">
         <label class="block text-sm font-medium mb-1">密碼</label>
-        <input type="password" name="password" class="w-full p-2 border rounded" required>
+        <input type="password" name="password" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
       </div>
-      <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">登入</button>
-      <a href="/" class="block w-full mt-2 text-blue-600 hover:underline text-center">返回首頁</a>
+      <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition duration-200">登入</button>
+      <a href="/" class="block w-full mt-3 text-blue-600 hover:underline text-center">返回首頁</a>
     </form>
   </div>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const response = await fetch('/login', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await response.json();
+      if (result.error) {
+        const errorDiv = document.getElementById('error');
+        errorDiv.innerText = result.error;
+        errorDiv.classList.remove('hidden');
+      } else {
+        window.location.href = '/dashboard';
+      }
+    });
+  </script>
 </body>
 </html>

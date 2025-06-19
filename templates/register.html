@@ -5,25 +5,113 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>文件管理系統 - 注冊</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="/static/toastr.min.css" rel="stylesheet"/>
+  <script src="/static/toastr.min.js"></script>
 </head>
 <body class="min-h-screen bg-gray-100">
-  <nav class="bg-blue-600 p-4">
-    <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+  <nav class="bg-blue-600 p-4 shadow-md">
+    <div class="max-w-5xl mx-auto">
+      <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+    </div>
   </nav>
-  <div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
-    <h2 class="text-2xl font-bold mb-4 text-center">注冊</h2>
-    <form action="/register" method="POST">
+  <div class="max-w-md mx-auto mt-16 p-6 bg-white rounded-lg shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-center">注冊</h2>
+    <form action="/register" method="POST" id="registerForm">
+      <div id="error" class="hidden text-red-600 text-sm mb-4"></div>
       <div class="mb-4">
         <label class="block text-sm font-medium mb-1">用戶名</label>
-        <input type="text" name="username" class="w-full p-2 border rounded" required>
+        <input type="text" name="username" id="username" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
       </div>
-      <div class="mb-4">
+      <div class="mb-6">
         <label class="block text-sm font-medium mb-1">密碼</label>
-        <input type="password" name="password" class="w-full p-2 border rounded" required>
+        <input type="password" name="password" id="password" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
       </div>
-      <button type="submit" class="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700">注冊</button>
-      <a href="/" class="block w-full mt-2 text-blue-600 hover:underline text-center">返回首頁</a>
+      <button type="submit" class="w-full bg-green-600 text-white p-3 rounded hover:bg-green-700 transition duration-200">注冊</button>
+      <a href="/" class="block w-full mt-3 text-blue-600 hover:underline text-center">返回首頁</a>
     </form>
   </div>
+  <script>
+    // 等待 DOM 和 toastr 載入完成
+    document.addEventListener('DOMContentLoaded', () => {
+      // 初始化 toastr
+      if (typeof toastr !== 'undefined') {
+        toastr.options = {
+          closeButton: true,
+          progressBar: true,
+          timeOut: 5000,
+          positionClass: 'toast-top-right'
+        };
+      } else {
+        console.error('toastr not loaded, falling back to alert');
+      }
+
+      const showError = (message) => {
+        const errorDiv = document.getElementById('error');
+        errorDiv.innerText = message;
+        errorDiv.classList.remove('hidden');
+        if (typeof toastr !== 'undefined') {
+          toastr.error(message);
+        } else {
+          alert(message);
+        }
+      };
+
+      const showSuccess = (message) => {
+        if (typeof toastr !== 'undefined') {
+          toastr.success(message);
+        } else {
+          alert(message);
+        }
+      };
+
+      document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+
+        // 用戶端驗證
+        if (!username || !password) {
+          showError('請提供用戶名和密碼');
+          return;
+        }
+
+        const formData = new FormData(e.target);
+        try {
+          const response = await fetch('/register', {
+            method: 'POST',
+            body: formData
+          });
+          if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              const result = await response.json();
+              if (result.error) {
+                showError(result.error);
+                return;
+              }
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const result = await response.json();
+            if (result.error) {
+              showError(result.error);
+            } else {
+              showSuccess('注冊成功');
+              window.location.href = '/dashboard';
+            }
+          } else {
+            // 假設重定向
+            showSuccess('注冊成功');
+            window.location.href = '/dashboard';
+          }
+        } catch (error) {
+          console.error('Register error:', error);
+          showError('注冊失敗，請稍後重試');
+        }
+      });
+    });
+  </script>
 </body>
 </html>

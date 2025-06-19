@@ -6,14 +6,17 @@
   <title>文件管理系統 - 首頁</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-gray-100">
-  <nav class="bg-blue-600 p-4">
-    <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+<body class="min-h-screen bg-gray-100 bg-cover bg-center" style="background-image: url('https://source.unsplash.com/random/1920x1080?abstract');">
+  <nav class="bg-blue-600 p-4 shadow-md">
+    <div class="max-w-5xl mx-auto">
+      <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+    </div>
   </nav>
-  <div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
+  <div class="max-w-md mx-auto mt-16 p-6 bg-white/90 rounded-lg shadow-lg backdrop-blur-sm">
     <h2 class="text-2xl font-bold mb-4 text-center">歡迎使用文件管理系統</h2>
-    <a href="/login" class="block w-full bg-blue-600 text-white p-2 rounded mb-2 text-center hover:bg-blue-700">登入</a>
-    <a href="/register" class="block w-full bg-green-600 text-white p-2 rounded text-center hover:bg-green-700">注冊</a>
+    <p class="text-center text-gray-600 mb-6">輕鬆管理您的文件，隨時隨地共享與搜尋！</p>
+    <a href="/login" class="block w-full bg-blue-600 text-white p-3 rounded mb-3 text-center hover:bg-blue-700 transition duration-200">登入</a>
+    <a href="/register" class="block w-full bg-green-600 text-white p-3 rounded text-center hover:bg-green-700 transition duration-200">注冊</a>
   </div>
 </body>
 </html>

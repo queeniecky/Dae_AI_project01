@@ -5,33 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>文件管理系統 - 個人化設置</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [data-theme="dark"] .bg-white { background-color: #1f2937; }
+    [data-theme="dark"] .text-black { color: #e5e7eb; }
+    [data-theme="dark"] .text-gray-600 { color: #9ca3af; }
+  </style>
 </head>
-<body class="min-h-screen" id="body">
-  <nav class="bg-blue-600 p-4 flex justify-between">
-    <h1 class="text-white text-xl font-bold">文件管理系統</h1>
-    <div class="flex space-x-4">
-      <a href="/dashboard" class="text-white hover:underline">文件管理</a>
-      <a href="/settings" class="text-white hover:underline">個人化設置</a>
-      <a href="/logout" class="text-white hover:underline">登出</a>
+<body class="min-h-screen" id="body" data-theme="light">
+  <nav class="bg-blue-600 p-4 shadow-md sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+      <h1 class="text-white text-xl font-bold">文件管理系統</h1>
+      <div class="flex items-center space-x-4">
+        <span id="username" class="text-white text-sm hidden sm:block">載入中...</span>
+        <a href="/dashboard" class="text-white hover:underline transition duration-200">文件管理</a>
+        <a href="/settings" class="text-white hover:underline transition duration-200">個人化設置</a>
+        <a href="/logout" class="text-white hover:underline transition duration-200">登出</a>
+      </div>
     </div>
   </nav>
-  <div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
-    <h2 class="text-2xl font-bold mb-4">個人化設置</h2>
-    <div class="mb-4">
+  <div class="max-w-md mx-auto mt-16 p-6 bg-white rounded-lg shadow-lg">
+    <h2 class="text-2xl font-bold mb-6">個人化設置</h2>
+    <div class="mb-6">
       <label class="block text-sm font-medium mb-1">主題</label>
-      <select id="theme" class="w-full p-2 border rounded">
+      <select id="theme" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500">
         <option value="light">淺色</option>
         <option value="dark">深色</option>
       </select>
     </div>
-    <button id="saveSettings" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">保存設置</button>
+    <div class="mb-6">
+      <label class="block text-sm font-medium mb-1">語言（未實現）</label>
+      <select class="w-full p-2 border rounded" disabled>
+        <option>繁體中文</option>
+        <option>簡體中文</option>
+        <option>English</option>
+      </select>
+    </div>
+    <button id="saveSettings" class="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition duration-200">保存設置</button>
   </div>
   <script>
     async function loadSettings() {
       const response = await fetch('/settings');
       const data = await response.json();
-      document.getElementById('body').className = 'min-h-screen ' + (data.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black');
+      const body = document.getElementById('body');
+      body.className = 'min-h-screen ' + (data.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black');
+      body.dataset.theme = data.theme;
       document.getElementById('theme').value = data.theme;
+    }
+
+    async function fetchUserInfo() {
+      const response = await fetch('/user_info');
+      const data = await response.json();
+      if (data.username) {
+        document.getElementById('username').innerText = `歡迎，${data.username}`;
+      } else {
+        document.getElementById('username').innerText = '未知用戶';
+      }
     }
 
     document.getElementById('saveSettings').addEventListener('click', async () => {
@@ -45,11 +73,16 @@
       if (result.error) {
         alert(result.error);
       } else {
-        document.getElementById('body').className = 'min-h-screen ' + (theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black');
+        const body = document.getElementById('body');
+        body.className = 'min-h-screen ' + (theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black');
+        body.dataset.theme = theme;
       }
     });
 
-    loadSettings();
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+      fetchUserInfo();
+    });
   </script>
 </body>
 </html>
