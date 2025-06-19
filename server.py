@@ -45,7 +45,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            owner_id INTEGER NOT NULL,
+            owner_id INTEGER NOT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             content TEXT,
             embedding BLOB,
@@ -620,6 +620,46 @@ def get_my_files():
         return jsonify({'error': '無效的token'}), 401
     except Exception as e:
         logger.error(f"My files error: {str(e)}")
+        return jsonify({'error': '服務器錯誤'}), 500
+
+# Get publicly shared files route
+@app.route('/api/public_files', methods=['GET'])
+def get_public_files():
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        # Fetch all publicly shared files
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT f.id, f.name, u.username AS owner, f.shared_with_all
+            FROM files f
+            JOIN users u ON f.owner_id = u.id
+            WHERE f.shared_with_all = 1
+        ''')
+        files = cursor.fetchall()
+        conn.close()
+
+        # Format response
+        file_list = [{
+            'id': file['id'],
+            'name': file['name'],
+            'owner': file['owner'],
+            'shared_with_all': bool(file['shared_with_all'])
+        } for file in files]
+
+        return jsonify({'files': file_list}), 200
+
+    except jwt.InvalidTokenError:
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Public files error: {str(e)}")
         return jsonify({'error': '服務器錯誤'}), 500
 
 # Serve index.html for root path

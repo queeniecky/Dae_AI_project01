@@ -50,6 +50,12 @@
         <ul id="recommendedFiles" class="space-y-2"></ul>
       </div>
 
+      <!-- Publicly Shared Files Section -->
+      <div id="publicFiles" class="mb-8">
+        <h3 class="text-lg font-semibold mb-2">公開共享文件</h3>
+        <ul id="publicSharedFiles" class="space-y-2"></ul>
+      </div>
+
       <!-- Navigation and Logout -->
       <div class="mt-4 space-y-2">
         <a href="/index.html" class="block w-full bg-gray-500 text-white p-2 rounded hover:bg-gray-600 text-center">返回首頁</a>
@@ -112,6 +118,7 @@
               uploadForm.reset();
               fetchRecommendations();
               fetchUploadedFiles();
+              fetchPublicFiles(); // Refresh public files after upload
             } else {
               alert(data.error);
             }
@@ -255,6 +262,7 @@
           if (response.ok) {
             alert(data.message);
             fetchUploadedFiles();
+            fetchPublicFiles(); // Refresh public files after deletion
           } else {
             alert(data.error);
           }
@@ -287,6 +295,7 @@
           if (response.ok) {
             alert(data.message);
             fetchUploadedFiles();
+            fetchPublicFiles(); // Refresh public files after rename
           } else {
             alert(data.error);
           }
@@ -315,12 +324,54 @@
           if (response.ok) {
             alert(data.message);
             fetchUploadedFiles();
+            fetchPublicFiles(); // Refresh public files after share toggle
           } else {
             alert(data.error);
           }
         } catch (error) {
           alert('網絡錯誤');
         }
+      }
+
+      // Fetch public files
+      async function fetchPublicFiles() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+          const response = await fetch('http://localhost:3000/api/public_files', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (response.ok) {
+            renderPublicFiles(data.files);
+          } else {
+            console.error(data.error);
+          }
+        } catch (error) {
+          console.error('網絡錯誤');
+        }
+      }
+
+      // Render public files
+      function renderPublicFiles(files) {
+        const publicSharedFiles = document.getElementById('publicSharedFiles');
+        publicSharedFiles.innerHTML = '';
+        if (!files.length) {
+          publicSharedFiles.innerHTML = '<li class="text-gray-500">無公開共享文件</li>';
+          return;
+        }
+        files.forEach(file => {
+          const li = document.createElement('li');
+          li.className = 'p-2 border rounded';
+          li.innerHTML = `
+            <p><strong>文件名:</strong> ${file.name}</p>
+            <p><strong>擁有者:</strong> ${file.owner}</p>
+            <p><strong>公開共享:</strong> ${file.shared_with_all ? '是' : '否'}</p>
+            <a href="/download/${file.id}" class="text-blue-500 hover:underline">下載</a>
+          `;
+          publicSharedFiles.appendChild(li);
+        });
       }
 
       // Fetch recommendations
@@ -385,6 +436,7 @@
             }
             fetchRecommendations();
             fetchUploadedFiles();
+            fetchPublicFiles(); // Load public files on page load
           } else {
             localStorage.removeItem('token');
             document.getElementById('welcomeContent')?.classList.remove('hidden');
