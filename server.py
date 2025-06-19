@@ -40,7 +40,7 @@ def init_db():
             email TEXT UNIQUE NOT NULL
         )
     ''')
-    # Files table
+    # Files table with shared_with_all column
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,6 +49,7 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             content TEXT,
             embedding BLOB,
+            shared_with_all INTEGER DEFAULT 0,
             FOREIGN KEY (owner_id) REFERENCES users(id)
         )
     ''')
@@ -289,18 +290,18 @@ def ai_search():
         # Generate query embedding
         query_embedding = model.encode(query)
 
-        # Fetch files accessible to user
+        # Fetch files accessible to user (owned, shared, or shared with all)
         conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT f.id, f.name, u.username AS owner, f.embedding,
+            SELECT f.id, f.name, u.username AS owner, f.embedding, f.shared_with_all,
                    GROUP_CONCAT(u2.username) AS shared_with
             FROM files f
             JOIN users u ON f.owner_id = u.id
             LEFT JOIN file_shares fs ON f.id = fs.file_id
             LEFT JOIN users u2 ON fs.user_id = u2.id
-            WHERE f.owner_id = ? OR fs.user_id = ?
+            WHERE f.owner_id = ? OR fs.user_id = ? OR f.shared_with_all = 1
             GROUP BY f.id
         ''', (decoded['userId'], decoded['userId']))
         files = cursor.fetchall()
@@ -318,6 +319,7 @@ def ai_search():
                         'name': file['name'],
                         'owner': file['owner'],
                         'shared_with': file['shared_with'] or '',
+                        'shared_with_all': bool(file['shared_with_all']),
                         'similarity': similarity
                     })
 
@@ -361,13 +363,13 @@ def recommend():
 
         recent_embedding = np.frombuffer(recent_file['embedding'], dtype=np.float32)
 
-        # Fetch other accessible files
+        # Fetch other accessible files (owned, shared, or shared with all)
         cursor.execute('''
-            SELECT f.id, f.name, u.username AS owner, f.embedding
+            SELECT f.id, f.name, u.username AS owner, f.embedding, f.shared_with_all
             FROM files f
             JOIN users u ON f.owner_id = u.id
             LEFT JOIN file_shares fs ON f.id = fs.file_id
-            WHERE (f.owner_id = ? OR fs.user_id = ?) AND f.id != ?
+            WHERE (f.owner_id = ? OR fs.user_id = ? OR f.shared_with_all = 1) AND f.id != ?
         ''', (decoded['userId'], decoded['userId'], recent_file['id']))
         files = cursor.fetchall()
         conn.close()
@@ -383,6 +385,7 @@ def recommend():
                         'id': file['id'],
                         'name': file['name'],
                         'owner': file['owner'],
+                        'shared_with_all': bool(file['shared_with_all']),
                         'similarity': similarity
                     })
 
@@ -396,6 +399,149 @@ def recommend():
         logger.error(f"Recommendation error: {str(e)}")
         return jsonify({'error': '服務器錯誤'}), 500
 
+# Delete file route
+@app.route('/api/delete_file/<int:file_id>', methods=['DELETE'])
+def delete_file(file_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        # Check if user owns the file
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT name, owner_id FROM files WHERE id = ?', (file_id,))
+        file = cursor.fetchone()
+
+        if not file:
+            conn.close()
+            return jsonify({'error': '文件不存在'}), 404
+
+        if file['owner_id'] != decoded['userId']:
+            conn.close()
+            return jsonify({'error': '無權限刪除此文件'}), 403
+
+        # Delete file from storage
+        for filename in os.listdir(UPLOAD_FOLDER):
+            if filename.startswith(f"{file['owner_id']}_") and filename.endswith(file['name']):
+                os.remove(os.path.join(UPLOAD_FOLDER, filename))
+                break
+
+        # Delete file from database
+        cursor.execute('DELETE FROM files WHERE id = ?', (file_id,))
+        cursor.execute('DELETE FROM file_shares WHERE file_id = ?', (file_id,))
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': '文件刪除成功'}), 200
+
+    except jwt.InvalidTokenError:
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Delete file error: {str(e)}")
+        return jsonify({'error': '服務器錯誤'}), 500
+
+# Rename file route
+@app.route('/api/rename_file/<int:file_id>', methods=['POST'])
+def rename_file(file_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        data = request.get_json()
+        new_name = data.get('new_name')
+
+        if not new_name or not allowed_file(new_name):
+            return jsonify({'error': '無效的文件名或格式'}), 400
+
+        # Check if user owns the file
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT name, owner_id FROM files WHERE id = ?', (file_id,))
+        file = cursor.fetchone()
+
+        if not file:
+            conn.close()
+            return jsonify({'error': '文件不存在'}), 404
+
+        if file['owner_id'] != decoded['userId']:
+            conn.close()
+            return jsonify({'error': '無權限重命名此文件'}), 403
+
+        # Rename file in storage
+        for filename in os.listdir(UPLOAD_FOLDER):
+            if filename.startswith(f"{file['owner_id']}_") and filename.endswith(file['name']):
+                old_path = os.path.join(UPLOAD_FOLDER, filename)
+                timestamp = filename.split('_')[1]
+                new_filename = f"{file['owner_id']}_{timestamp}_{new_name}"
+                new_path = os.path.join(UPLOAD_FOLDER, new_filename)
+                os.rename(old_path, new_path)
+                break
+
+        # Update file name in database
+        cursor.execute('UPDATE files SET name = ? WHERE id = ?', (new_name, file_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': '文件重命名成功'}), 200
+
+    except jwt.InvalidTokenError:
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Rename file error: {str(e)}")
+        return jsonify({'error': '服務器錯誤'}), 500
+
+# Share file with all users route
+@app.route('/api/share_file_all/<int:file_id>', methods=['POST'])
+def share_file_all(file_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        # Check if user owns the file
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT owner_id, shared_with_all FROM files WHERE id = ?', (file_id,))
+        file = cursor.fetchone()
+
+        if not file:
+            conn.close()
+            return jsonify({'error': '文件不存在'}), 404
+
+        if file['owner_id'] != decoded['userId']:
+            conn.close()
+            return jsonify({'error': '無權限共享此文件'}), 403
+
+        # Toggle shared_with_all status
+        new_status = 1 if not file['shared_with_all'] else 0
+        cursor.execute('UPDATE files SET shared_with_all = ? WHERE id = ?', (new_status, file_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'message': '文件共享設置更新成功',
+            'shared_with_all': bool(new_status)
+        }), 200
+
+    except jwt.InvalidTokenError:
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Share file all error: {str(e)}")
+        return jsonify({'error': '服務器錯誤'}), 500
+
 # Download file route
 @app.route('/download/<int:file_id>', methods=['GET'])
 def download_file(file_id):
@@ -407,15 +553,15 @@ def download_file(file_id):
     try:
         decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
 
-        # Check access
+        # Check access (owned, shared, or shared with all)
         conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT f.name, f.owner_id
+            SELECT f.name, f.owner_id, f.shared_with_all
             FROM files f
             LEFT JOIN file_shares fs ON f.id = fs.file_id
-            WHERE f.id = ? AND (f.owner_id = ? OR fs.user_id = ?)
+            WHERE f.id = ? AND (f.owner_id = ? OR fs.user_id = ? OR f.shared_with_all = 1)
         ''', (file_id, decoded['userId'], decoded['userId']))
         file = cursor.fetchone()
         conn.close()
@@ -452,7 +598,7 @@ def get_my_files():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT f.id, f.name, u.username AS owner
+            SELECT f.id, f.name, u.username AS owner, f.shared_with_all
             FROM files f
             JOIN users u ON f.owner_id = u.id
             WHERE f.owner_id = ?
@@ -464,7 +610,8 @@ def get_my_files():
         file_list = [{
             'id': file['id'],
             'name': file['name'],
-            'owner': file['owner']
+            'owner': file['owner'],
+            'shared_with_all': bool(file['shared_with_all'])
         } for file in files]
 
         return jsonify({'files': file_list}), 200
