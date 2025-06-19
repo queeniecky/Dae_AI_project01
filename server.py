@@ -45,7 +45,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            owner_id INTEGER NOT NOT NULL,
+            owner_id INTEGER NOT NULL, -- Fixed: Removed extra "NOT"
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             content TEXT,
             embedding BLOB,
