@@ -38,6 +38,22 @@
         </form>
       </div>
 
+      <!-- Folder Management Section -->
+      <div class="mb-8">
+        <h3 class="text-lg font-semibold mb-2">文件夾管理</h3>
+        <form id="createFolderForm" class="space-y-4 mb-4">
+          <div>
+            <label for="folderName" class="block text-sm font-medium">新建文件夾名稱</label>
+            <input type="text" id="folderName" class="mt-1 w-full p-2 border rounded" required placeholder="例如：旅遊2025">
+          </div>
+          <button type="submit" class="w-full bg-indigo-500 text-white p-2 rounded hover:bg-indigo-600">創建文件夾</button>
+        </form>
+        <div>
+          <h4 class="text-md font-semibold mb-2">文件夾列表</h4>
+          <ul id="folderList" class="space-y-2"></ul>
+        </div>
+      </div>
+
       <!-- Uploaded Files Section -->
       <div class="mb-8">
         <h3 class="text-lg font-semibold mb-2">已上傳文件</h3>
@@ -71,6 +87,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       const aiSearchForm = document.getElementById('aiSearchForm');
       const uploadForm = document.getElementById('uploadForm');
+      const createFolderForm = document.getElementById('createFolderForm');
       const logout = document.getElementById('logout');
       const protectedContent = document.getElementById('protectedContent');
 
@@ -137,6 +154,46 @@
         });
       }
 
+      // Create folder form submission
+      if (createFolderForm) {
+        createFolderForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const folderName = document.getElementById('folderName').value;
+          if (!folderName) {
+            alert('請輸入文件夾名稱');
+            return;
+          }
+          const token = localStorage.getItem('token');
+          if (!token) {
+            alert('請先登入');
+            window.location.href = '/login.html';
+            return;
+          }
+
+          try {
+            const response = await fetch('http://localhost:3000/api/create_folder', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ folder_name: folderName })
+            });
+            const data = await response.json();
+            if (response.ok) {
+              alert(data.message);
+              createFolderForm.reset();
+              fetchFolders();
+            } else {
+              alert(data.error);
+            }
+          } catch (error) {
+            console.error('Create folder error:', error);
+            alert('網絡錯誤');
+          }
+        });
+      }
+
       // Logout
       if (logout) {
         logout.addEventListener('click', () => {
@@ -165,7 +222,7 @@
           });
           const data = await response.json();
           if (response.ok) {
-            renderFiles(data.results);
+            renderFiles(data.results, 'searchResults');
           } else {
             alert(data.error);
           }
@@ -175,27 +232,183 @@
         }
       }
 
-      // Render search results
-      function renderFiles(results) {
-        const searchResults = document.getElementById('searchResults');
-        searchResults.innerHTML = '';
-        if (results.length === 0) {
-          searchResults.innerHTML = '<li class="text-gray-500">無相關文件</li>';
+      // Render files (generic for search results, folder contents, etc.)
+      function renderFiles(results, targetId) {
+        console.log(`Rendering files for ${targetId}:`, results); // Debug log
+        const target = document.getElementById(targetId);
+        if (!target) {
+          console.error(`Target element ${targetId} not found`);
+          alert('無法顯示文件：頁面元素缺失');
+          return;
+        }
+        target.innerHTML = '';
+        if (!results || results.length === 0) {
+          target.innerHTML = '<li class="text-gray-500">無相關文件</li>';
           return;
         }
         results.forEach(file => {
+          console.log('Rendering file:', file); // Debug log
           const li = document.createElement('li');
           li.className = 'p-2 border rounded';
           li.innerHTML = `
-            <p><strong>文件名:</strong> ${file.name}</p>
-            <p><strong>擁有者:</strong> ${file.owner}</p>
+            <p><strong>文件名:</strong> ${file.name || '未知'}</p>
+            <p><strong>擁有者:</strong> ${file.owner || '未知'}</p>
             <p><strong>共享對象:</strong> ${file.shared_with || '無'}</p>
             <p><strong>公開共享:</strong> ${file.shared_with_all ? '是' : '否'}</p>
-            <p><strong>相似度:</strong> ${(file.similarity * 100).toFixed(2)}%</p>
-            <a href="/download/${file.id}" class="text-blue-500 hover:underline">下載</a>
+            ${file.similarity ? `<p><strong>相似度:</strong> ${(file.similarity * 100).toFixed(2)}%</p>` : ''}
+            <a href="/download/${file.id || ''}" class="text-blue-500 hover:underline">下載</a>
           `;
-          searchResults.appendChild(li);
+          target.appendChild(li);
         });
+      }
+
+      // Fetch folders
+      async function fetchFolders() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+          const response = await fetch('http://localhost:3000/api/folders', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (response.ok) {
+            renderFolders(data.folders);
+          } else {
+            console.error('Fetch folders error:', data.error);
+          }
+        } catch (error) {
+          console.error('Fetch folders network error:', error);
+        }
+      }
+
+      // Render folders
+      function renderFolders(folders) {
+        console.log('Rendering folders:', folders); // Debug log
+        const folderList = document.getElementById('folderList');
+        folderList.innerHTML = '';
+        if (folders.length === 0) {
+          folderList.innerHTML = '<li class="text-gray-500">無文件夾</li>';
+          return;
+        }
+        folders.forEach(folder => {
+          const li = document.createElement('li');
+          li.className = 'p-2 border rounded flex justify-between items-center';
+          li.innerHTML = `
+            <div>
+              <p><strong>文件夾名稱:</strong> ${folder.name}</p>
+              <button class="view-folder-btn text-blue-500 hover:underline" data-id="${folder.id}">查看文件</button>
+            </div>
+            <div class="space-x-2">
+              <button class="add-file-btn bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600" data-id="${folder.id}">添加文件</button>
+              <button class="delete-folder-btn bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600" data-id="${folder.id}">刪除</button>
+            </div>
+          `;
+          folderList.appendChild(li);
+        });
+        // Use event delegation for view-folder-btn
+        folderList.addEventListener('click', (e) => {
+          if (e.target.classList.contains('view-folder-btn')) {
+            const folderId = e.target.getAttribute('data-id');
+            console.log(`View folder button clicked for folder ID: ${folderId}`); // Debug log
+            viewFolderFiles(folderId);
+          }
+        });
+        // Attach other event listeners
+        document.querySelectorAll('.add-file-btn').forEach(btn => {
+          btn.addEventListener('click', () => addFileToFolder(btn.getAttribute('data-id')));
+        });
+        document.querySelectorAll('.delete-folder-btn').forEach(btn => {
+          btn.addEventListener('click', () => deleteFolder(btn.getAttribute('data-id')));
+        });
+      }
+
+      // View folder files
+      async function viewFolderFiles(folderId) {
+        console.log(`Fetching files for folder ID: ${folderId}`); // Debug log
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('請先登入');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        try {
+          const response = await fetch(`http://localhost:3000/api/folder_files/${folderId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          console.log('Folder files response:', data); // Debug log
+          if (response.ok) {
+            renderFiles(data.files, 'searchResults');
+          } else {
+            alert(data.error || '無法獲取文件列表');
+          }
+        } catch (error) {
+          console.error('View folder files error:', error);
+          alert('網絡錯誤');
+        }
+      }
+
+      // Add file to folder
+      async function addFileToFolder(folderId) {
+        const fileId = prompt('請輸入要添加的文件ID：');
+        if (!fileId) return;
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('請先登入');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        try {
+          const response = await fetch(`http://localhost:3000/api/add_file_to_folder/${folderId}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ file_id: fileId })
+          });
+          const data = await response.json();
+          if (response.ok) {
+            alert(data.message);
+            fetchFolders();
+          } else {
+            alert(data.error);
+          }
+        } catch (error) {
+          console.error('Add file to folder error:', error);
+          alert('網絡錯誤');
+        }
+      }
+
+      // Delete folder
+      async function deleteFolder(folderId) {
+        if (!confirm('確定要刪除此文件夾嗎？')) return;
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('請先登入');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        try {
+          const response = await fetch(`http://localhost:3000/api/delete_folder/${folderId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (response.ok) {
+            alert(data.message);
+            fetchFolders();
+          } else {
+            alert(data.error);
+          }
+        } catch (error) {
+          console.error('Delete folder error:', error);
+          alert('網絡錯誤');
+        }
       }
 
       // Fetch uploaded files
@@ -207,12 +420,8 @@
           const response = await fetch('http://localhost:3000/api/my_files', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          const data = await response.json();
-          if (response.ok) {
-            renderUploadedFiles(data.files);
-          } else {
-            console.error('My files error:', data.error);
-          }
+          const data = await assertResponseOk(response);
+          renderUploadedFiles(data.files);
         } catch (error) {
           console.error('My files network error:', error);
         }
@@ -232,6 +441,7 @@
           li.innerHTML = `
             <div>
               <p><strong>文件名:</strong> ${file.name}</p>
+              <p><strong>文件ID:</strong> ${file.id}</p>
               <p><strong>擁有者:</strong> ${file.owner}</p>
               <p><strong>公開共享:</strong> ${file.shared_with_all ? '是' : '否'}</p>
               <a href="/download/${file.id}" class="text-blue-500 hover:underline">下載</a>
@@ -252,6 +462,15 @@
         });
       }
 
+      // Check response and throw error if not OK
+      async function assertResponseOk(response) {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error);
+        }
+        return data;
+      }
+
       async function deleteFile(fileId) {
         if (!confirm('確定要刪除此文件嗎？')) return;
         const token = localStorage.getItem('token');
@@ -266,17 +485,14 @@
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          const data = await response.json();
-          if (response.ok) {
-            alert(data.message);
-            fetchUploadedFiles();
-            fetchPublicFiles();
-          } else {
-            alert(data.error);
-          }
+          const data = await assertResponseOk(response);
+          alert(data.message);
+          fetchUploadedFiles();
+          fetchPublicFiles();
+          fetchFolders();
         } catch (error) {
           console.error('Delete file error:', error);
-          alert('網絡錯誤');
+          alert(error.message || '網絡錯誤');
         }
       }
 
@@ -299,17 +515,14 @@
             },
             body: JSON.stringify({ new_name: newName })
           });
-          const data = await response.json();
-          if (response.ok) {
-            alert(data.message);
-            fetchUploadedFiles();
-            fetchPublicFiles();
-          } else {
-            alert(data.error);
-          }
+          const data = await assertResponseOk(response);
+          alert(data.message);
+          fetchUploadedFiles();
+          fetchPublicFiles();
+          fetchFolders();
         } catch (error) {
           console.error('Rename file error:', error);
-          alert('網絡錯誤');
+          alert(error.message || '網絡錯誤');
         }
       }
 
@@ -328,17 +541,14 @@
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          const data = await response.json();
-          if (response.ok) {
-            alert(data.message);
-            fetchUploadedFiles();
-            fetchPublicFiles();
-          } else {
-            alert(data.error);
-          }
+          const data = await assertResponseOk(response);
+          alert(data.message);
+          fetchUploadedFiles();
+          fetchPublicFiles();
+          fetchFolders();
         } catch (error) {
           console.error('Share file error:', error);
-          alert('網絡錯誤');
+          alert(error.message || '網絡錯誤');
         }
       }
 
@@ -350,12 +560,8 @@
           const response = await fetch('http://localhost:3000/api/public_files', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          const data = await response.json();
-          if (response.ok) {
-            renderPublicFiles(data.files);
-          } else {
-            console.error('Public files error:', data.error);
-          }
+          const data = await assertResponseOk(response);
+          renderPublicFiles(data.files);
         } catch (error) {
           console.error('Public files network error:', error);
         }
@@ -389,12 +595,8 @@
           const response = await fetch('http://localhost:3000/api/recommend', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          const data = await response.json();
-          if (response.ok) {
-            renderRecommendations(data.results);
-          } else {
-            console.error('Recommendations error:', data.error);
-          }
+          const data = await assertResponseOk(response);
+          renderRecommendations(data.results);
         } catch (error) {
           console.error('Recommendations network error:', error);
         }
@@ -441,6 +643,7 @@
             fetchRecommendations();
             fetchUploadedFiles();
             fetchPublicFiles();
+            fetchFolders();
           } else {
             localStorage.removeItem('token');
             document.getElementById('welcomeContent')?.classList.remove('hidden');

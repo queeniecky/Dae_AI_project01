@@ -75,6 +75,24 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                owner_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (owner_id) REFERENCES users(id)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS folder_files (
+                folder_id INTEGER NOT NULL,
+                file_id INTEGER NOT NULL,
+                PRIMARY KEY (folder_id, file_id),
+                FOREIGN KEY (folder_id) REFERENCES folders(id),
+                FOREIGN KEY (file_id) REFERENCES files(id)
+            )
+        ''')
         conn.commit()
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -494,6 +512,7 @@ def delete_file(file_id):
 
         cursor.execute('DELETE FROM files WHERE id = ?', (file_id,))
         cursor.execute('DELETE FROM file_shares WHERE file_id = ?', (file_id,))
+        cursor.execute('DELETE FROM folder_files WHERE file_id = ?', (file_id,))
         conn.commit()
         logger.info(f"File deleted: ID {file_id} by user ID {decoded['userId']}")
         return jsonify({'message': '文件刪除成功'}), 200
@@ -725,6 +744,225 @@ def get_public_files():
         return jsonify({'error': '無效的token'}), 401
     except Exception as e:
         logger.error(f"Public files error: {str(e)}", exc_info=True)
+        return jsonify({'error': '服務器錯誤'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/create_folder', methods=['POST'])
+def create_folder():
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        logger.warning("Create folder failed: No token provided")
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        data = request.get_json()
+        folder_name = data.get('folder_name')
+
+        if not folder_name:
+            logger.warning("Create folder failed: No folder name provided")
+            return jsonify({'error': '請提供文件夾名稱'}), 400
+
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO folders (name, owner_id) VALUES (?, ?)',
+            (folder_name, decoded['userId'])
+        )
+        conn.commit()
+        logger.info(f"Folder created: {folder_name} by user ID {decoded['userId']}")
+        return jsonify({'message': '文件夾創建成功'}), 201
+    except jwt.InvalidTokenError:
+        logger.warning("Create folder failed: Invalid token")
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Create folder error: {str(e)}", exc_info=True)
+        return jsonify({'error': '服務器錯誤'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/folders', methods=['GET'])
+def get_folders():
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        logger.warning("Fetch folders failed: No token provided")
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, name FROM folders WHERE owner_id = ?', (decoded['userId'],))
+        folders = cursor.fetchall()
+
+        folder_list = [{'id': folder['id'], 'name': folder['name']} for folder in folders]
+        logger.debug(f"Fetched {len(folder_list)} folders for user ID {decoded['userId']}")
+        return jsonify({'folders': folder_list}), 200
+    except jwt.InvalidTokenError:
+        logger.warning("Fetch folders failed: Invalid token")
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Fetch folders error: {str(e)}", exc_info=True)
+        return jsonify({'error': '服務器錯誤'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/folder_files/<int:folder_id>', methods=['GET'])
+def get_folder_files(folder_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        logger.warning("Fetch folder files failed: No token provided")
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT owner_id FROM folders WHERE id = ?', (folder_id,))
+        folder = cursor.fetchone()
+        if not folder:
+            logger.warning(f"Fetch folder files failed: Folder ID {folder_id} not found")
+            return jsonify({'error': '文件夾不存在'}), 404
+        if folder['owner_id'] != decoded['userId']:
+            logger.warning(f"Fetch folder files failed: User ID {decoded['userId']} not owner of folder {folder_id}")
+            return jsonify({'error': '無權限訪問此文件夾'}), 403
+
+        cursor.execute('''
+            SELECT f.id, f.name, u.username AS owner, f.shared_with_all,
+                   GROUP_CONCAT(u2.username) AS shared_with
+            FROM files f
+            JOIN users u ON f.owner_id = u.id
+            LEFT JOIN file_shares fs ON f.id = fs.file_id
+            LEFT JOIN users u2 ON fs.user_id = u2.id
+            JOIN folder_files ff ON f.id = ff.file_id
+            WHERE ff.folder_id = ?
+            GROUP BY f.id
+        ''', (folder_id,))
+        files = cursor.fetchall()
+
+        file_list = [{
+            'id': file['id'],
+            'name': file['name'],
+            'owner': file['owner'],
+            'shared_with': file['shared_with'] or '',
+            'shared_with_all': bool(file['shared_with_all'])
+        } for file in files]
+
+        logger.debug(f"Fetched {len(file_list)} files for folder ID {folder_id}")
+        return jsonify({'files': file_list}), 200
+    except jwt.InvalidTokenError:
+        logger.warning("Fetch folder files failed: Invalid token")
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Fetch folder files error: {str(e)}", exc_info=True)
+        return jsonify({'error': '服務器錯誤'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/add_file_to_folder/<int:folder_id>', methods=['POST'])
+def add_file_to_folder(folder_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        logger.warning("Add file to folder failed: No token provided")
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        data = request.get_json()
+        file_id = data.get('file_id')
+
+        if not file_id:
+            logger.warning("Add file to folder failed: No file ID provided")
+            return jsonify({'error': '請提供文件ID'}), 400
+
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT owner_id FROM folders WHERE id = ?', (folder_id,))
+        folder = cursor.fetchone()
+        if not folder:
+            logger.warning(f"Add file to folder failed: Folder ID {folder_id} not found")
+            return jsonify({'error': '文件夾不存在'}), 404
+        if folder['owner_id'] != decoded['userId']:
+            logger.warning(f"Add file to folder failed: User ID {decoded['userId']} not owner of folder {folder_id}")
+            return jsonify({'error': '無權限操作此文件夾'}), 403
+
+        cursor.execute('SELECT owner_id FROM files WHERE id = ?', (file_id,))
+        file = cursor.fetchone()
+        if not file:
+            logger.warning(f"Add file to folder failed: File ID {file_id} not found")
+            return jsonify({'error': '文件不存在'}), 404
+        if file['owner_id'] != decoded['userId']:
+            logger.warning(f"Add file to folder failed: User ID {decoded['userId']} not owner of file {file_id}")
+            return jsonify({'error': '無權限操作此文件'}), 403
+
+        cursor.execute(
+            'INSERT OR IGNORE INTO folder_files (folder_id, file_id) VALUES (?, ?)',
+            (folder_id, file_id)
+        )
+        conn.commit()
+        logger.info(f"File ID {file_id} added to folder ID {folder_id} by user ID {decoded['userId']}")
+        return jsonify({'message': '文件已添加到文件夾'}), 200
+    except sqlite3.IntegrityError:
+        logger.warning(f"Add file to folder failed: File ID {file_id} already in folder {folder_id}")
+        return jsonify({'error': '文件已在此文件夾中'}), 400
+    except jwt.InvalidTokenError:
+        logger.warning("Add file to folder failed: Invalid token")
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Add file to folder error: {str(e)}", exc_info=True)
+        return jsonify({'error': '服務器錯誤'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/delete_folder/<int:folder_id>', methods=['DELETE'])
+def delete_folder(folder_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        logger.warning("Delete folder failed: No token provided")
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT owner_id FROM folders WHERE id = ?', (folder_id,))
+        folder = cursor.fetchone()
+
+        if not folder:
+            logger.warning(f"Delete folder failed: Folder ID {folder_id} not found")
+            return jsonify({'error': '文件夾不存在'}), 404
+        if folder['owner_id'] != decoded['userId']:
+            logger.warning(f"Delete folder failed: User ID {decoded['userId']} not owner of folder {folder_id}")
+            return jsonify({'error': '無權限刪除此文件夾'}), 403
+
+        cursor.execute('DELETE FROM folder_files WHERE folder_id = ?', (folder_id,))
+        cursor.execute('DELETE FROM folders WHERE id = ?', (folder_id,))
+        conn.commit()
+        logger.info(f"Folder deleted: ID {folder_id} by user ID {decoded['userId']}")
+        return jsonify({'message': '文件夾刪除成功'}), 200
+    except jwt.InvalidTokenError:
+        logger.warning("Delete folder failed: Invalid token")
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Delete folder error: {str(e)}", exc_info=True)
         return jsonify({'error': '服務器錯誤'}), 500
     finally:
         if 'conn' in locals():
