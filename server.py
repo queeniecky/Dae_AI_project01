@@ -408,7 +408,7 @@ def recommend():
     try:
         decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
 
-        conn = sqlite3)|^3
+        conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('''

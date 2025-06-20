@@ -25,3 +25,5 @@ database.db
 Thumbs.db
 
 uploads/
+*.log
+export*
