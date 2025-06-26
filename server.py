@@ -479,6 +479,74 @@ def recommend():
         if 'conn' in locals():
             conn.close()
 
+@app.route('/api/recommend/<int:file_id>', methods=['GET'])
+def recommend_by_file(file_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        logger.warning("Recommend by file failed: No token provided")
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT f.id, f.name, f.embedding, f.owner_id, f.shared_with_all
+            FROM files f
+            LEFT JOIN file_shares fs ON f.id = fs.file_id
+            WHERE f.id = ? AND (f.owner_id = ? OR fs.user_id = ? OR f.shared_with_all = 1)
+        ''', (file_id, decoded['userId'], decoded['userId']))
+        target_file = cursor.fetchone()
+
+        if not target_file:
+            logger.warning(f"Recommend by file failed: File ID {file_id} not found or no permission for user ID {decoded['userId']}")
+            return jsonify({'error': '文件不存在或無權限'}), 403
+
+        if not target_file['embedding']:
+            logger.debug(f"No embedding found for file ID {file_id}")
+            return jsonify({'results': []}), 200
+
+        target_embedding = np.frombuffer(target_file['embedding'], dtype=np.float32)
+
+        cursor.execute('''
+            SELECT f.id, f.name, u.username AS owner, f.embedding, f.shared_with_all
+            FROM files f
+            JOIN users u ON f.owner_id = u.id
+            LEFT JOIN file_shares fs ON f.id = fs.file_id
+            WHERE (f.owner_id = ? OR fs.user_id = ? OR f.shared_with_all = 1) AND f.id != ?
+        ''', (decoded['userId'], decoded['userId'], file_id))
+        files = cursor.fetchall()
+
+        results = []
+        for file in files:
+            if file['embedding']:
+                embedding = np.frombuffer(file['embedding'], dtype=np.float32)
+                similarity = util.cos_sim(target_embedding, embedding).item()
+                if similarity > 0.1:
+                    results.append({
+                        'id': file['id'],
+                        'name': file['name'],
+                        'owner': file['owner'],
+                        'shared_with_all': bool(file['shared_with_all']),
+                        'similarity': similarity
+                    })
+
+        results.sort(key=lambda x: x['similarity'], reverse=True)
+        logger.debug(f"Recommendations generated for file ID {file_id} by user ID {decoded['userId']}")
+        return jsonify({'results': results[:5]}), 200
+    except jwt.InvalidTokenError:
+        logger.warning("Recommend by file failed: Invalid token")
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Recommend by file error: {str(e)}", exc_info=True)
+        return jsonify({'error': '服務器錯誤'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 @app.route('/api/delete_file/<int:file_id>', methods=['DELETE'])
 def delete_file(file_id):
     token = request.headers.get('Authorization')
