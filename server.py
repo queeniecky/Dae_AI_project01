@@ -425,23 +425,32 @@ def recommend():
     token = token.split(' ')[1]
     try:
         decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        file_id = request.args.get('file_id', type=int)
 
         conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute('''
-            SELECT id, name, embedding
-            FROM files
-            WHERE owner_id = ?
-            ORDER BY created_at DESC
-            LIMIT 1
-        ''', (decoded['userId'],))
-        recent_file = cursor.fetchone()
+        if file_id:
+            cursor.execute('''
+                SELECT id, name, embedding
+                FROM files
+                WHERE id = ? AND owner_id = ?
+            ''', (file_id, decoded['userId']))
+            selected_file = cursor.fetchone()
+        else:
+            cursor.execute('''
+                SELECT id, name, embedding
+                FROM files
+                WHERE owner_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (decoded['userId'],))
+            selected_file = cursor.fetchone()
 
-        if not recent_file or not recent_file['embedding']:
+        if not selected_file or not selected_file['embedding']:
             return jsonify({'results': []}), 200
 
-        recent_embedding = np.frombuffer(recent_file['embedding'], dtype=np.float32)
+        selected_embedding = np.frombuffer(selected_file['embedding'], dtype=np.float32)
 
         cursor.execute('''
             SELECT f.id, f.name, u.username AS owner, f.embedding, f.shared_with_all
@@ -449,14 +458,14 @@ def recommend():
             JOIN users u ON f.owner_id = u.id
             LEFT JOIN file_shares fs ON f.id = fs.file_id
             WHERE (f.owner_id = ? OR fs.user_id = ? OR f.shared_with_all = 1) AND f.id != ?
-        ''', (decoded['userId'], decoded['userId'], recent_file['id']))
+        ''', (decoded['userId'], decoded['userId'], selected_file['id']))
         files = cursor.fetchall()
 
         results = []
         for file in files:
             if file['embedding']:
                 embedding = np.frombuffer(file['embedding'], dtype=np.float32)
-                similarity = util.cos_sim(recent_embedding, embedding).item()
+                similarity = util.cos_sim(selected_embedding, embedding).item()
                 if similarity > 0.1:
                     results.append({
                         'id': file['id'],
@@ -467,7 +476,7 @@ def recommend():
                     })
 
         results.sort(key=lambda x: x['similarity'], reverse=True)
-        logger.debug(f"Recommendations generated for user ID {decoded['userId']}")
+        logger.debug(f"Recommendations generated for user ID {decoded['userId']} (file_id={file_id})")
         return jsonify({'results': results[:5]}), 200
     except jwt.InvalidTokenError:
         logger.warning("Recommend failed: Invalid token")
