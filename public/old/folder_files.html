@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件夾內容</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl">
+    <h1 class="text-2xl font-bold mb-6 text-center">文件夾內容</h1>
+    <div id="protectedContent" class="hidden">
+      <h2 class="text-xl font-semibold mb-4">文件列表</h2>
+      <ul id="fileList" class="space-y-2"></ul>
+      <a href="/dashboard.html" class="block w-full bg-gray-500 text-white p-2 rounded hover:bg-gray-600 text-center mt-4">返回</a>
+    </div>
+    <div id="welcomeContent" class="">
+      <p class="text-center">請先登入以查看文件夾內容</p>
+      <a href="/login.html" class="block w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 text-center mt-4">登入</a>
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const protectedContent = document.getElementById('protectedContent');
+      const welcomeContent = document.getElementById('welcomeContent');
+
+      // Get folder ID from URL query parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const folderId = urlParams.get('folderId');
+
+      if (!folderId) {
+        alert('無效的文件夾ID');
+        window.location.href = '/dashboard.html';
+        return;
+      }
+
+      // Check authentication and fetch folder files
+      async function showFolderContent() {
+        const token = localStorage.getItem('token');
+        if (!token || !protectedContent) {
+          welcomeContent.classList.remove('hidden');
+          protectedContent.classList.add('hidden');
+          return;
+        }
+
+        try {
+          // Verify user authentication
+          const userResponse = await fetch('http://localhost:3000/api/protected', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const userData = await userResponse.json();
+
+          if (!userResponse.ok) {
+            localStorage.removeItem('token');
+            welcomeContent.classList.remove('hidden');
+            protectedContent.classList.add('hidden');
+            alert('請先登入');
+            window.location.href = '/login.html';
+            return;
+          }
+
+          // Fetch folder files
+          const response = await fetch(`http://localhost:3000/api/folder_files/${folderId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            welcomeContent.classList.add('hidden');
+            protectedContent.classList.remove('hidden');
+            renderFiles(data.files);
+          } else {
+            alert(data.error || '無法獲取文件列表');
+            window.location.href = '/dashboard.html';
+          }
+        } catch (error) {
+          console.error('Error fetching folder files:', error);
+          alert('網絡錯誤');
+          window.location.href = '/dashboard.html';
+        }
+      }
+
+      // Render files
+      function renderFiles(files) {
+        const fileList = document.getElementById('fileList');
+        fileList.innerHTML = '';
+        if (!files || files.length === 0) {
+          fileList.innerHTML = '<li class="text-gray-500">此文件夾為空</li>';
+          return;
+        }
+        files.forEach(file => {
+          const li = document.createElement('li');
+          li.className = 'p-2 border rounded';
+          li.innerHTML = `
+            <p><strong>文件名:</strong> ${file.name || '未知'}</p>
+            <p><strong>擁有者:</strong> ${file.owner || '未知'}</p>
+            <p><strong>共享對象:</strong> ${file.shared_with || '無'}</p>
+            <p><strong>公開共享:</strong> ${file.shared_with_all ? '是' : '否'}</p>
+            <a href="/download/${file.id || ''}" class="text-blue-500 hover:underline">下載</a>
+          `;
+          fileList.appendChild(li);
+        });
+      }
+
+      showFolderContent();
+    });
+  </script>
+</body>
+</html>
