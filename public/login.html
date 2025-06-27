@@ -1,31 +1,254 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>用戶系統 - 登入</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-    <h1 class="text-2xl font-bold mb-6 text-center">用戶系統</h1>
-    <div id="loginForm">
-      <h2 class="text-xl font-semibold mb-4">登入</h2>
-      <form id="login" class="space-y-4">
-        <div>
-          <label for="loginUsername" class="block text-sm font-medium">用戶名</label>
-          <input type="text" id="loginUsername" class="mt-1 w-full p-2 border rounded" required>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>用戶系統 - 登入</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .font-orbitron {
+        font-family: "Orbitron", monospace;
+      }
+
+      .glassmorphism {
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .glitch-text {
+        text-shadow: 2px 2px 4px rgba(0, 255, 255, 0.5);
+        animation: glitch 2s infinite;
+      }
+
+      .input-focus:focus {
+        outline: none;
+        border-color: #14b8a6;
+        box-shadow: 0 0 10px rgba(20, 184, 166, 0.5);
+      }
+
+      .shadow-teal-glow {
+        box-shadow: 0 0 20px rgba(20, 184, 166, 0.5);
+      }
+
+      /* Scroll to top button */
+      .scroll-to-top {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+        background: rgba(20, 184, 166, 0.8);
+        border: 2px solid #14b8a6;
+        border-radius: 50%;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+      }
+
+      .scroll-to-top:hover {
+        background: rgba(20, 184, 166, 1);
+        transform: translateY(-3px);
+        box-shadow: 0 0 20px rgba(20, 184, 166, 0.6);
+      }
+
+      /* Smooth scrolling */
+      html {
+        scroll-behavior: smooth;
+      }
+
+      /* Progress bar */
+      .scroll-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 0%;
+        height: 3px;
+        background: linear-gradient(90deg, #14b8a6, #06b6d4);
+        z-index: 1001;
+        transition: width 0.3s ease;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-br from-black via-teal-900 to-black min-h-screen font-orbitron relative"
+  >
+    <!-- Scroll Progress Bar -->
+    <div class="scroll-progress" id="scrollProgress"></div>
+
+    <!-- Scroll to Top Button -->
+    <button class="scroll-to-top" id="scrollToTop" title="回到頂部">↑</button>
+
+    <div id="particles-js" class="absolute inset-0 z-0"></div>
+    <div
+      class="glassmorphism p-8 rounded-lg w-full max-w-6xl border-4 border-red-600 relative z-10 mx-auto my-8"
+    >
+      <h1 class="text-4xl font-bold mb-6 text-center text-teal-400 glitch-text">
+        用戶系統
+      </h1>
+      <div id="protectedContent">
+        <h2 class="text-xl font-semibold mb-4 text-white">登入</h2>
+        <form id="loginForm" class="space-y-4">
+          <div>
+            <label for="username" class="block text-sm font-medium text-gray-300">用戶名</label>
+            <input
+              type="text"
+              id="username"
+              class="mt-1 w-full p-2 bg-gray-900 border border-teal-500 rounded text-white input-focus"
+              required
+              placeholder="輸入用戶名"
+            />
+          </div>
+          <div>
+            <label for="password" class="block text-sm font-medium text-gray-300">密碼</label>
+            <input
+              type="password"
+              id="password"
+              class="mt-1 w-full p-2 bg-gray-900 border border-teal-500 rounded text-white input-focus"
+              required
+              placeholder="輸入密碼"
+            />
+          </div>
+          <button
+            type="submit"
+            class="w-full bg-teal-500 text-black p-2 rounded hover:bg-teal-600 transition-all duration-300 shadow-teal-glow"
+          >
+            登入
+          </button>
+        </form>
+        <div class="mt-4 space-y-2">
+          <a
+            href="/register.html"
+            class="block w-full bg-indigo-500 text-white p-2 rounded hover:bg-indigo-600 text-center transition-all duration-300 shadow-teal-glow"
+          >
+            沒有賬號？注冊
+          </a>
+          <a
+            href="/index.html"
+            class="block w-full bg-gray-500 text-white p-2 rounded hover:bg-gray-600 text-center transition-all duration-300"
+          >
+            返回首頁
+          </a>
         </div>
-        <div>
-          <label for="loginPassword" class="block text-sm font-medium">密碼</label>
-          <input type="password" id="loginPassword" class="mt-1 w-full p-2 border rounded" required>
-        </div>
-        <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">登入</button>
-      </form>
-      <p class="mt-4 text-center">沒有賬號？<a href="/register.html" class="text-blue-500">注冊</a></p>
-      <p class="mt-2 text-center"><a href="/index.html" class="text-blue-500">返回首頁</a></p>
+      </div>
     </div>
-  </div>
-  <script src="app.js"></script>
-</body>
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+      // Scroll functionality
+      function initScrollFeatures() {
+        const scrollToTopBtn = document.getElementById('scrollToTop');
+        const scrollProgress = document.getElementById('scrollProgress');
+        
+        // Scroll to top functionality
+        scrollToTopBtn.addEventListener('click', () => {
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        });
+        
+        // Update scroll progress and show/hide scroll to top button
+        window.addEventListener('scroll', () => {
+          const scrollTop = window.pageYOffset;
+          const docHeight = document.body.offsetHeight - window.innerHeight;
+          const scrollPercent = (scrollTop / docHeight) * 100;
+          
+          // Update progress bar
+          scrollProgress.style.width = scrollPercent + '%';
+          
+          // Show/hide scroll to top button
+          if (scrollTop > 300) {
+            scrollToTopBtn.style.display = 'flex';
+          } else {
+            scrollToTopBtn.style.display = 'none';
+          }
+        });
+      }
+
+      // Initialize particles.js
+      particlesJS("particles-js", {
+        particles: {
+          number: { value: 80, density: { enable: true, value_area: 800 } },
+          color: { value: "#14b8a6" },
+          shape: { type: "circle" },
+          opacity: { value: 0.5, random: false },
+          size: { value: 3, random: true },
+          line_linked: {
+            enable: true,
+            distance: 150,
+            color: "#14b8a6",
+            opacity: 0.4,
+            width: 1,
+          },
+          move: {
+            enable: true,
+            speed: 6,
+            direction: "none",
+            random: false,
+            straight: false,
+            out_mode: "out",
+            bounce: false,
+          },
+        },
+        interactivity: {
+          detect_on: "canvas",
+          events: {
+            onhover: { enable: true, mode: "repulse" },
+            onclick: { enable: true, mode: "push" },
+            resize: true,
+          },
+        },
+        retina_detect: true,
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        // Initialize scroll features
+        initScrollFeatures();
+        
+        const loginForm = document.getElementById("loginForm");
+
+        if (loginForm) {
+          loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            if (!username || !password) {
+              alert("請填寫所有字段");
+              return;
+            }
+
+            try {
+              const response = await fetch("http://localhost:3000/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password }),
+              });
+              const data = await response.json();
+              if (response.ok) {
+                localStorage.setItem("token", data.token);
+                alert("登入成功！");
+                window.location.href = "/dashboard.html";
+              } else {
+                alert(data.error);
+              }
+            } catch (error) {
+              console.error("Login error:", error);
+              alert("網絡錯誤");
+            }
+          });
+        }
+      });
+    </script>
+  </body>
 </html>
