@@ -824,6 +824,48 @@ def get_folders():
         if 'conn' in locals():
             conn.close()
 
+@app.route('/api/folder/<int:folder_id>', methods=['GET'])
+def get_folder(folder_id):
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        logger.warning("Fetch folder failed: No token provided")
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, name, owner_id FROM folders WHERE id = ?', (folder_id,))
+        folder = cursor.fetchone()
+        
+        if not folder:
+            logger.warning(f"Fetch folder failed: Folder ID {folder_id} not found")
+            return jsonify({'error': '文件夾不存在'}), 404
+            
+        if folder['owner_id'] != decoded['userId']:
+            logger.warning(f"Fetch folder failed: User ID {decoded['userId']} not owner of folder {folder_id}")
+            return jsonify({'error': '無權限訪問此文件夾'}), 403
+
+        folder_data = {
+            'id': folder['id'],
+            'name': folder['name']
+        }
+        
+        logger.debug(f"Fetched folder details for folder ID {folder_id}")
+        return jsonify({'folder': folder_data}), 200
+    except jwt.InvalidTokenError:
+        logger.warning("Fetch folder failed: Invalid token")
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"Fetch folder error: {str(e)}", exc_info=True)
+        return jsonify({'error': '服務器錯誤'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 @app.route('/api/folder_files/<int:folder_id>', methods=['GET'])
 def get_folder_files(folder_id):
     token = request.headers.get('Authorization')
