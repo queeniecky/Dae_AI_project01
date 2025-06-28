@@ -78,6 +78,36 @@
         z-index: 1001;
         transition: width 0.3s ease;
       }
+
+      /* File item styling */
+      .file-item {
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(20, 184, 166, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      .file-item:hover {
+        border-color: rgba(20, 184, 166, 0.8);
+        box-shadow: 0 0 15px rgba(20, 184, 166, 0.3);
+        transform: translateY(-2px);
+      }
+
+      /* Loading animation */
+      .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(20, 184, 166, 0.3);
+        border-radius: 50%;
+        border-top-color: #14b8a6;
+        animation: spin 1s ease-in-out infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
   </head>
   <body
@@ -94,21 +124,42 @@
       class="glassmorphism p-8 rounded-lg w-full max-w-6xl border-4 border-red-600 relative z-10 mx-auto my-8"
     >
       <h1 class="text-4xl font-bold mb-6 text-center text-teal-400 glitch-text">
-        用戶系統
+        文件夾內容
       </h1>
-      <div id="protectedContent">
-        <h2 class="text-xl font-semibold mb-4 text-white">文件列表</h2>
-        <div id="fileList" class="space-y-2">
-          <!-- File list content would go here -->
+      <div id="protectedContent" class="hidden">
+        <div id="folderInfo" class="mb-6">
+          <h2 id="folderName" class="text-2xl font-semibold mb-2 text-white">
+            載入中...
+          </h2>
+          <p id="fileCount" class="text-gray-300">
+            文件數量: <span class="loading"></span>
+          </p>
         </div>
-        <a
-          href="/index.html"
-          class="block w-full bg-gray-500 text-white p-2 rounded hover:bg-gray-600 text-center mt-4 transition-all duration-300 shadow-teal-glow"
-        >
-          返回
-        </a>
+
+        <div id="fileList" class="space-y-3 mb-6">
+          <div class="text-center text-gray-400">
+            <div class="loading mx-auto"></div>
+            <p class="mt-2">載入文件中...</p>
+          </div>
+        </div>
+
+        <div class="flex space-x-4">
+          <a
+            href="/dashboard.html"
+            class="flex-1 bg-teal-500 text-black p-3 rounded hover:bg-teal-600 text-center transition-all duration-300 shadow-teal-glow font-semibold"
+          >
+            返回儀表板
+          </a>
+          <button
+            id="logout"
+            class="flex-1 bg-red-500 text-white p-3 rounded hover:bg-red-600 transition-all duration-300 shadow-teal-glow font-semibold"
+          >
+            登出
+          </button>
+        </div>
       </div>
-      <div id="welcomeContent" class="">
+
+      <div id="welcomeContent">
         <p class="text-center text-gray-300">請先登入以查看文件夾內容</p>
         <div class="space-y-4 mt-4">
           <a
@@ -120,35 +171,206 @@
         </div>
       </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
     <script>
+      // Get folder ID from URL parameters
+      function getFolderId() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get("folderId");
+      }
+
+      // Fetch folder details
+      async function fetchFolderDetails(folderId) {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/folder/${folderId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            document.getElementById("folderName").textContent =
+              data.folder.name;
+          } else {
+            const errorData = await response.json();
+            document.getElementById("folderName").textContent = "未知文件夾";
+            console.error("Folder details error:", errorData.error);
+          }
+        } catch (error) {
+          console.error("Fetch folder details error:", error);
+          document.getElementById("folderName").textContent = "載入失敗";
+        }
+      }
+
+      // Fetch folder files
+      async function fetchFolderFiles(folderId) {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/folder_files/${folderId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            displayFolderFiles(data.files);
+            updateFileCount(data.files.length);
+          } else {
+            const errorData = await response.json();
+            showError(errorData.error || "載入文件失敗");
+          }
+        } catch (error) {
+          console.error("Fetch folder files error:", error);
+          showError("網絡錯誤，無法載入文件");
+        }
+      }
+
+      // Display folder files
+      function displayFolderFiles(files) {
+        const fileList = document.getElementById("fileList");
+
+        if (files.length === 0) {
+          fileList.innerHTML = `
+            <div class="text-center text-gray-400 py-8">
+              <p class="text-lg">此文件夾中沒有文件</p>
+              <p class="text-sm mt-2">返回儀表板上傳文件到此文件夾</p>
+            </div>
+          `;
+          return;
+        }
+
+        fileList.innerHTML = files
+          .map(
+            (file) => `
+          <div class="file-item p-4 rounded-lg">
+            <div class="flex justify-between items-center">
+              <div class="flex-1">
+                <h3 class="text-lg font-semibold text-teal-400 mb-1">${
+                  file.name
+                }</h3>
+                <div class="text-sm text-gray-300 space-y-1">
+                  <p><span class="text-teal-300">擁有者:</span> ${
+                    file.owner
+                  }</p>
+                  ${
+                    file.shared_with
+                      ? `<p><span class="text-teal-300">分享給:</span> ${file.shared_with}</p>`
+                      : ""
+                  }
+                  ${
+                    file.shared_with_all
+                      ? '<p><span class="text-green-400">✓ 公開分享</span></p>'
+                      : ""
+                  }
+                </div>
+              </div>
+              <div class="flex space-x-2">
+                <a
+                  href="/download/${file.id}"
+                  class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-all duration-300 text-sm"
+                  download
+                >
+                  下載
+                </a>
+                <button
+                  onclick="recommendSimilarFiles(${file.id})"
+                  class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600 transition-all duration-300 text-sm"
+                >
+                  推薦相似
+                </button>
+              </div>
+            </div>
+          </div>
+        `
+          )
+          .join("");
+      }
+
+      // Update file count
+      function updateFileCount(count) {
+        const fileCount = document.getElementById("fileCount");
+        fileCount.innerHTML = `文件數量: ${count}`;
+      }
+
+      // Show error message
+      function showError(message) {
+        const fileList = document.getElementById("fileList");
+        fileList.innerHTML = `
+          <div class="text-center text-red-400 py-8">
+            <p class="text-lg">${message}</p>
+          </div>
+        `;
+      }
+
+      // Recommend similar files
+      async function recommendSimilarFiles(fileId) {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/recommend?file_id=${fileId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.recommendations && data.recommendations.length > 0) {
+              const fileNames = data.recommendations
+                .map((f) => f.name)
+                .join(", ");
+              alert(`推薦的相似文件: ${fileNames}`);
+            } else {
+              alert("沒有找到相似的文件");
+            }
+          } else {
+            alert("獲取推薦失敗");
+          }
+        } catch (error) {
+          console.error("Recommend error:", error);
+          alert("網絡錯誤");
+        }
+      }
+
       // Scroll functionality
       function initScrollFeatures() {
-        const scrollToTopBtn = document.getElementById('scrollToTop');
-        const scrollProgress = document.getElementById('scrollProgress');
-        
+        const scrollToTopBtn = document.getElementById("scrollToTop");
+        const scrollProgress = document.getElementById("scrollProgress");
+
         // Scroll to top functionality
-        scrollToTopBtn.addEventListener('click', () => {
+        scrollToTopBtn.addEventListener("click", () => {
           window.scrollTo({
             top: 0,
-            behavior: 'smooth'
+            behavior: "smooth",
           });
         });
-        
+
         // Update scroll progress and show/hide scroll to top button
-        window.addEventListener('scroll', () => {
+        window.addEventListener("scroll", () => {
           const scrollTop = window.pageYOffset;
           const docHeight = document.body.offsetHeight - window.innerHeight;
           const scrollPercent = (scrollTop / docHeight) * 100;
-          
+
           // Update progress bar
-          scrollProgress.style.width = scrollPercent + '%';
-          
+          scrollProgress.style.width = scrollPercent + "%";
+
           // Show/hide scroll to top button
           if (scrollTop > 300) {
-            scrollToTopBtn.style.display = 'flex';
+            scrollToTopBtn.style.display = "flex";
           } else {
-            scrollToTopBtn.style.display = 'none';
+            scrollToTopBtn.style.display = "none";
           }
         });
       }
@@ -192,7 +414,7 @@
       document.addEventListener("DOMContentLoaded", () => {
         // Initialize scroll features
         initScrollFeatures();
-        
+
         const logout = document.getElementById("logout");
         const protectedContent = document.getElementById("protectedContent");
 
@@ -223,6 +445,15 @@
                 .getElementById("welcomeContent")
                 ?.classList.add("hidden");
               protectedContent.classList.remove("hidden");
+
+              // Get folder ID and fetch files
+              const folderId = getFolderId();
+              if (folderId) {
+                fetchFolderDetails(folderId);
+                fetchFolderFiles(folderId);
+              } else {
+                showError("未指定文件夾ID");
+              }
             } else {
               localStorage.removeItem("token");
               document
