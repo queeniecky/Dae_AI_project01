@@ -547,10 +547,10 @@
             const li = document.createElement("li");
             li.className = "p-2 border rounded";
             li.innerHTML = `
-              <p><strong class="text-teal-400">文件名:</strong> ${file.name || "未知"}</p>  <!-- Changed to teal-400 -->
-              <p><strong class="text-teal-400">擁有者:</strong> ${file.owner || "未知"}</p>  <!-- Changed to teal-400 -->
-              <p><strong class="text-teal-400">共享對象:</strong> ${file.shared_with || "無"}</p>  <!-- Changed to teal-400 -->
-              <p><strong class="text-teal-400">公開共享:</strong> ${file.shared_with_all ? "是" : "否"}</p>  <!-- Changed to teal-400 -->
+              <p><strong class="text-teal-400">文件名:</strong> <span class="text-white">${file.name || "未知"}</span></p>  <!-- Changed to teal-400 -->
+              <p><strong class="text-teal-400">擁有者:</strong> <span class="text-white">${file.owner || "未知"}</span></p>  <!-- Changed to teal-400 -->
+              <p><strong class="text-teal-400">共享對象:</strong> <span class="text-white">${file.shared_with || "無"}</span></p>  <!-- Changed to teal-400 -->
+              <p><strong class="text-teal-400">公開共享:</strong> <span class="text-white">${file.shared_with_all ? "是" : "否"}</span></p>  <!-- Changed to teal-400 -->
               ${
                 file.similarity
                   ? `<p><strong>相似度:</strong> ${(file.similarity * 100).toFixed(
@@ -724,12 +724,12 @@
               "p-2 border rounded flex justify-between items-center";
             li.innerHTML = `
               <div>
-                <p><strong class="text-teal-400">文件名:</strong> ${file.name}</p>  <!-- Changed to teal-400 -->
-                <p><strong class="text-teal-400">文件ID:</strong> ${file.id}</p>  <!-- Changed to teal-400 -->
-                <p><strong class="text-teal-400">擁有者:</strong> ${file.owner}</p>  <!-- Changed to teal-400 -->
-                <p><strong class="text-teal-400">公開共享:</strong> ${
+                <p><strong class="text-teal-400">文件名:</strong> <span class="text-white">${file.name}</span></p>  <!-- Changed to teal-400 -->
+                <p><strong class="text-teal-400">文件ID:</strong> <span class="text-white">${file.id}</span></p>  <!-- Changed to teal-400 -->
+                <p><strong class="text-teal-400">擁有者:</strong> <span class="text-white">${file.owner}</span></p>  <!-- Changed to teal-400 -->
+                <p><strong class="text-teal-400">公開共享:</strong> <span class="text-white">${
                   file.shared_with_all ? "是" : "否"
-                }</p>  <!-- Changed to teal-400 -->
+                }</span></p>  <!-- Changed to teal-400 -->
                 <a href="/download/${
                   file.id
                 }" class="text-blue-500 hover:underline">下載</a>
