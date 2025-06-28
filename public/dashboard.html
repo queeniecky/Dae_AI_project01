@@ -192,7 +192,9 @@
             <input
               type="file"
               id="fileInput"
+              name="files[]"
               accept=".txt,.pdf"
+              multiple
               class="mt-1 w-full p-2 bg-gray-900 border border-teal-500 rounded text-white input-focus"
             />
             <button
@@ -281,65 +283,65 @@
     <script>
       // Scroll functionality
       function initScrollFeatures() {
-        const scrollToTopBtn = document.getElementById('scrollToTop');
-        const scrollProgress = document.getElementById('scrollProgress');
-        
+        const scrollToTopBtn = document.getElementById("scrollToTop");
+        const scrollProgress = document.getElementById("scrollProgress");
+
         // Scroll to top functionality
-        scrollToTopBtn.addEventListener('click', () => {
+        scrollToTopBtn.addEventListener("click", () => {
           window.scrollTo({
             top: 0,
-            behavior: 'smooth'
+            behavior: "smooth",
           });
         });
-        
+
         // Update scroll progress and show/hide scroll to top button
-        window.addEventListener('scroll', () => {
+        window.addEventListener("scroll", () => {
           const scrollTop = window.pageYOffset;
           const docHeight = document.body.offsetHeight - window.innerHeight;
           const scrollPercent = (scrollTop / docHeight) * 100;
-          
+
           // Update progress bar
-          scrollProgress.style.width = scrollPercent + '%';
-          
+          scrollProgress.style.width = scrollPercent + "%";
+
           // Show/hide scroll to top button
           if (scrollTop > 300) {
-            scrollToTopBtn.style.display = 'flex';
+            scrollToTopBtn.style.display = "flex";
           } else {
-            scrollToTopBtn.style.display = 'none';
+            scrollToTopBtn.style.display = "none";
           }
         });
-        
+
         // Fade in animation for sections
         const observerOptions = {
           threshold: 0.1,
-          rootMargin: '0px 0px -50px 0px'
+          rootMargin: "0px 0px -50px 0px",
         };
-        
+
         const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
+          entries.forEach((entry) => {
             if (entry.isIntersecting) {
-              entry.target.classList.add('visible');
+              entry.target.classList.add("visible");
             }
           });
         }, observerOptions);
-        
+
         // Observe all fade-in elements
-        document.querySelectorAll('.fade-in').forEach(el => {
+        document.querySelectorAll(".fade-in").forEach((el) => {
           observer.observe(el);
         });
       }
-      
+
       // Section navigation function
       function scrollToSection(sectionId) {
         const element = document.getElementById(sectionId);
         if (element) {
           element.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
+            behavior: "smooth",
+            block: "start",
           });
         }
       }
-      
+
       // Initialize particles.js
       particlesJS("particles-js", {
         particles: {
@@ -379,7 +381,7 @@
       document.addEventListener("DOMContentLoaded", () => {
         // Initialize scroll features
         initScrollFeatures();
-        
+
         const aiSearchForm = document.getElementById("aiSearchForm");
         const uploadForm = document.getElementById("uploadForm");
         const createFolderForm = document.getElementById("createFolderForm");
@@ -406,7 +408,7 @@
             const fileInput = document.getElementById("fileInput");
             const token = localStorage.getItem("token");
             if (!fileInput.files.length) {
-              alert("請選擇文件");
+              alert("請選擇至少一個文件");
               return;
             }
             if (!token) {
@@ -415,45 +417,44 @@
               return;
             }
 
-            const file = fileInput.files[0];
-            console.log(
-              "Uploading file:",
-              file.name,
-              "Size:",
-              file.size,
-              "Type:",
-              file.type
-            );
-            if (file.size > 10 * 1024 * 1024) {
-              // 10MB limit
-              alert("文件大小超過10MB限制");
-              return;
-            }
-
-            const formData = new FormData();
-            formData.append("file", file);
-
-            try {
-              const response = await fetch("http://localhost:3000/api/upload", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-              });
-              const data = await response.json();
-              console.log("Server response:", data);
-              if (response.ok) {
-                alert(data.message);
-                uploadForm.reset();
-                fetchRecommendations();
-                fetchUploadedFiles();
-                fetchPublicFiles();
-              } else {
-                alert(data.error);
+            const files = Array.from(fileInput.files); // Convert FileList to Array
+            for (const file of files) {
+              if (file.size > 10 * 1024 * 1024) {
+                // 10MB limit
+                alert(`文件 ${file.name} 大小超過10MB限制`);
+                return;
               }
-            } catch (error) {
-              console.error("Upload error:", error);
-              alert("網絡錯誤");
+
+              const formData = new FormData();
+              formData.append("file", file);
+
+              try {
+                const response = await fetch(
+                  "http://localhost:3000/api/upload",
+                  {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: formData,
+                  }
+                );
+                const data = await response.json();
+                console.log("Server response:", data);
+                if (response.ok) {
+                  alert(`成功上傳 ${file.name}: ${data.message}`);
+                } else {
+                  alert(`上傳 ${file.name} 失敗: ${data.error}`);
+                }
+              } catch (error) {
+                console.error("Upload error:", error);
+                alert(`上傳 ${file.name} 失敗: 網絡錯誤`);
+              }
             }
+
+            // Reset form and refresh data after all uploads
+            uploadForm.reset();
+            fetchRecommendations();
+            fetchUploadedFiles();
+            fetchPublicFiles();
           });
         }
 
@@ -634,16 +635,13 @@
         </div>
       `;
             folderList.appendChild(li);
-          });
-          // Attach event listeners for add and delete buttons
-          document.querySelectorAll(".add-file-btn").forEach((btn) => {
-            btn.addEventListener("click", () =>
-              addFileToFolder(btn.getAttribute("data-id"))
+            // Attach event listeners for add and delete buttons
+            li.querySelector(".add-file-btn").addEventListener("click", () =>
+              addFileToFolder(folder.id)
             );
-          });
-          document.querySelectorAll(".delete-folder-btn").forEach((btn) => {
-            btn.addEventListener("click", () =>
-              deleteFolder(btn.getAttribute("data-id"))
+            li.querySelector(".delete-folder-btn").addEventListener(
+              "click",
+              () => deleteFolder(folder.id)
             );
           });
         }
@@ -770,7 +768,7 @@
           }">刪除</button>
           <button class="rename-btn bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600 transition-all duration-300" data-id="${
             file.id
-          }" data-name="${file.name}">重命名</button>
+          }" data-name="${file.name}">重新命名</button>
           <button class="share-btn bg-purple-500 text-white px-2 py-1 rounded hover:bg-purple-600 transition-all duration-300" data-id="${
             file.id
           }" data-shared="${file.shared_with_all}">
