@@ -35,6 +35,17 @@
         box-shadow: 0 0 20px rgba(20, 184, 166, 0.5);
       }
 
+      /* AI Neural Network Canvas */
+      #ai-network {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+      }
+
       /* Scroll to top button */
       .scroll-to-top {
         position: fixed;
@@ -83,13 +94,15 @@
   <body
     class="bg-gradient-to-br from-black via-teal-900 to-black min-h-screen font-orbitron relative"
   >
+    <!-- AI Neural Network Background -->
+    <canvas id="ai-network"></canvas>
+
     <!-- Scroll Progress Bar -->
     <div class="scroll-progress" id="scrollProgress"></div>
 
     <!-- Scroll to Top Button -->
     <button class="scroll-to-top" id="scrollToTop" title="回到頂部">↑</button>
 
-    <div id="particles-js" class="absolute inset-0 z-0"></div>
     <div
       class="glassmorphism p-8 rounded-lg w-full max-w-6xl border-4 border-red-600 relative z-10 mx-auto my-8"
     >
@@ -128,79 +141,323 @@
         </div>
       </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+
     <script>
+      // AI Neural Network with Training Animation
+      class AINeuralNetwork {
+        constructor() {
+          this.canvas = document.getElementById("ai-network");
+          this.ctx = this.canvas.getContext("2d");
+          this.layers = [];
+          this.connections = [];
+          this.dataFlow = [];
+          this.trainingStep = 0;
+          this.epoch = 0;
+
+          // Neural network structure
+          this.layerSizes = [4, 6, 6, 3]; // Input, Hidden1, Hidden2, Output
+          this.layerSpacing = 200;
+
+          this.resize();
+          this.init();
+          this.animate();
+
+          window.addEventListener("resize", () => this.resize());
+        }
+
+        resize() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+          this.init(); // Reinitialize with new dimensions
+        }
+
+        init() {
+          this.layers = [];
+          this.connections = [];
+          this.dataFlow = [];
+
+          const startX = this.canvas.width * 0.1;
+          const centerY = this.canvas.height / 2;
+
+          // Create layers
+          this.layerSizes.forEach((size, layerIndex) => {
+            const layer = {
+              x: startX + layerIndex * this.layerSpacing,
+              nodes: [],
+              activation: 0,
+            };
+
+            // Create nodes in this layer
+            for (let i = 0; i < size; i++) {
+              const nodeY = centerY + (i - (size - 1) / 2) * 60;
+              layer.nodes.push({
+                x: layer.x,
+                y: nodeY,
+                activation: Math.random() * 0.3,
+                bias: (Math.random() - 0.5) * 0.5,
+                pulse: Math.random() * Math.PI * 2,
+                error: 0,
+              });
+            }
+
+            this.layers.push(layer);
+          });
+
+          // Create connections between layers
+          for (
+            let layerIndex = 0;
+            layerIndex < this.layers.length - 1;
+            layerIndex++
+          ) {
+            const currentLayer = this.layers[layerIndex];
+            const nextLayer = this.layers[layerIndex + 1];
+
+            currentLayer.nodes.forEach((fromNode) => {
+              nextLayer.nodes.forEach((toNode) => {
+                this.connections.push({
+                  from: fromNode,
+                  to: toNode,
+                  weight: (Math.random() - 0.5) * 2,
+                  gradient: 0,
+                  pulse: Math.random() * Math.PI * 2,
+                });
+              });
+            });
+          }
+
+          // Initialize data flow
+          this.initDataFlow();
+        }
+
+        initDataFlow() {
+          this.dataFlow = [];
+          this.layers[0].nodes.forEach((node, index) => {
+            this.dataFlow.push({
+              x: node.x,
+              y: node.y,
+              targetX: node.x,
+              targetY: node.y,
+              value: Math.random(),
+              layer: 0,
+              nodeIndex: index,
+              speed: 0.02,
+            });
+          });
+        }
+
+        forwardPropagate() {
+          // Simulate forward propagation
+          for (
+            let layerIndex = 1;
+            layerIndex < this.layers.length;
+            layerIndex++
+          ) {
+            const layer = this.layers[layerIndex];
+
+            layer.nodes.forEach((node) => {
+              let sum = node.bias;
+
+              // Sum weighted inputs from previous layer
+              this.connections.forEach((conn) => {
+                if (conn.to === node) {
+                  sum += conn.from.activation * conn.weight;
+                }
+              });
+
+              // Apply activation function (sigmoid)
+              node.activation = 1 / (1 + Math.exp(-sum));
+            });
+          }
+        }
+
+        update() {
+          this.trainingStep++;
+
+          // Simulate training process
+          if (this.trainingStep % 100 === 0) {
+            this.epoch++;
+            this.forwardPropagate();
+
+            // Update data flow
+            this.updateDataFlow();
+          }
+
+          // Update node activations and pulses
+          this.layers.forEach((layer) => {
+            layer.nodes.forEach((node) => {
+              node.pulse += 0.03;
+              // Simulate activation changes
+              node.activation += (Math.random() - 0.5) * 0.01;
+              node.activation = Math.max(0, Math.min(1, node.activation));
+            });
+          });
+
+          // Update connection weights (simulate learning)
+          this.connections.forEach((conn) => {
+            conn.pulse += 0.02;
+            // Simulate weight updates
+            conn.weight += (Math.random() - 0.5) * 0.001;
+            conn.weight = Math.max(-2, Math.min(2, conn.weight));
+          });
+        }
+
+        updateDataFlow() {
+          // Simulate data flowing through the network
+          this.dataFlow.forEach((flow) => {
+            if (flow.layer < this.layers.length - 1) {
+              // Move to next layer
+              const nextLayer = this.layers[flow.layer + 1];
+              if (nextLayer.nodes[flow.nodeIndex % nextLayer.nodes.length]) {
+                const targetNode =
+                  nextLayer.nodes[flow.nodeIndex % nextLayer.nodes.length];
+                flow.targetX = targetNode.x;
+                flow.targetY = targetNode.y;
+                flow.layer++;
+              }
+            } else {
+              // Reset to input layer
+              flow.layer = 0;
+              flow.targetX = this.layers[0].nodes[flow.nodeIndex].x;
+              flow.targetY = this.layers[0].nodes[flow.nodeIndex].y;
+            }
+
+            // Smooth movement
+            flow.x += (flow.targetX - flow.x) * flow.speed;
+            flow.y += (flow.targetY - flow.y) * flow.speed;
+          });
+        }
+
+        draw() {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+          // Draw connections with weights
+          this.connections.forEach((conn) => {
+            const strength = Math.abs(conn.weight);
+            const alpha = strength * 0.4 + 0.1;
+            const color = conn.weight > 0 ? "#14b8a6" : "#ef4444";
+
+            this.ctx.strokeStyle = `rgba(20, 184, 166, ${alpha})`;
+            this.ctx.lineWidth = strength * 3 + 0.5;
+
+            // Add pulsing effect
+            const pulse = Math.sin(conn.pulse) * 0.2 + 0.8;
+            this.ctx.globalAlpha = alpha * pulse;
+
+            this.ctx.beginPath();
+            this.ctx.moveTo(conn.from.x, conn.from.y);
+            this.ctx.lineTo(conn.to.x, conn.to.y);
+            this.ctx.stroke();
+          });
+
+          this.ctx.globalAlpha = 1;
+
+          // Draw data flow particles
+          this.dataFlow.forEach((flow) => {
+            const pulse =
+              Math.sin(flow.layer * 0.5 + this.trainingStep * 0.01) * 0.3 + 0.7;
+            this.ctx.fillStyle = `rgba(20, 184, 166, ${pulse})`;
+            this.ctx.beginPath();
+            this.ctx.arc(flow.x, flow.y, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Add glow effect
+            this.ctx.shadowColor = "#14b8a6";
+            this.ctx.shadowBlur = 15;
+            this.ctx.fill();
+            this.ctx.shadowBlur = 0;
+          });
+
+          // Draw nodes with activation levels
+          this.layers.forEach((layer, layerIndex) => {
+            layer.nodes.forEach((node) => {
+              const activation = node.activation;
+              const pulse = Math.sin(node.pulse) * 0.2 + 0.8;
+
+              // Node size based on activation
+              const radius = 8 + activation * 12;
+
+              // Node color based on activation
+              const intensity = activation * 0.8 + 0.2;
+              this.ctx.fillStyle = `rgba(20, 184, 166, ${intensity * pulse})`;
+
+              this.ctx.beginPath();
+              this.ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+              this.ctx.fill();
+
+              // Add glow effect
+              this.ctx.shadowColor = "#14b8a6";
+              this.ctx.shadowBlur = 20;
+              this.ctx.fill();
+              this.ctx.shadowBlur = 0;
+
+              // Draw layer labels
+              if (layerIndex === 0) {
+                this.ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+                this.ctx.font = "12px Orbitron";
+                this.ctx.textAlign = "right";
+                this.ctx.fillText("Input", node.x - 20, node.y + 4);
+              } else if (layerIndex === this.layers.length - 1) {
+                this.ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+                this.ctx.font = "12px Orbitron";
+                this.ctx.textAlign = "left";
+                this.ctx.fillText("Output", node.x + 20, node.y + 4);
+              }
+            });
+          });
+
+          // Draw training info
+          this.ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          this.ctx.font = "14px Orbitron";
+          this.ctx.textAlign = "left";
+          this.ctx.fillText(`Epoch: ${this.epoch}`, 20, 30);
+          this.ctx.fillText(`Training...`, 20, 50);
+        }
+
+        animate() {
+          this.update();
+          this.draw();
+          requestAnimationFrame(() => this.animate());
+        }
+      }
+
       // Scroll functionality
       function initScrollFeatures() {
-        const scrollToTopBtn = document.getElementById('scrollToTop');
-        const scrollProgress = document.getElementById('scrollProgress');
-        
+        const scrollToTopBtn = document.getElementById("scrollToTop");
+        const scrollProgress = document.getElementById("scrollProgress");
+
         // Scroll to top functionality
-        scrollToTopBtn.addEventListener('click', () => {
+        scrollToTopBtn.addEventListener("click", () => {
           window.scrollTo({
             top: 0,
-            behavior: 'smooth'
+            behavior: "smooth",
           });
         });
-        
+
         // Update scroll progress and show/hide scroll to top button
-        window.addEventListener('scroll', () => {
+        window.addEventListener("scroll", () => {
           const scrollTop = window.pageYOffset;
           const docHeight = document.body.offsetHeight - window.innerHeight;
           const scrollPercent = (scrollTop / docHeight) * 100;
-          
+
           // Update progress bar
-          scrollProgress.style.width = scrollPercent + '%';
-          
+          scrollProgress.style.width = scrollPercent + "%";
+
           // Show/hide scroll to top button
           if (scrollTop > 300) {
-            scrollToTopBtn.style.display = 'flex';
+            scrollToTopBtn.style.display = "flex";
           } else {
-            scrollToTopBtn.style.display = 'none';
+            scrollToTopBtn.style.display = "none";
           }
         });
       }
 
-      // Initialize particles.js
-      particlesJS("particles-js", {
-        particles: {
-          number: { value: 80, density: { enable: true, value_area: 800 } },
-          color: { value: "#14b8a6" },
-          shape: { type: "circle" },
-          opacity: { value: 0.5, random: false },
-          size: { value: 3, random: true },
-          line_linked: {
-            enable: true,
-            distance: 150,
-            color: "#14b8a6",
-            opacity: 0.4,
-            width: 1,
-          },
-          move: {
-            enable: true,
-            speed: 6,
-            direction: "none",
-            random: false,
-            straight: false,
-            out_mode: "out",
-            bounce: false,
-          },
-        },
-        interactivity: {
-          detect_on: "canvas",
-          events: {
-            onhover: { enable: true, mode: "repulse" },
-            onclick: { enable: true, mode: "push" },
-            resize: true,
-          },
-        },
-        retina_detect: true,
-      });
-
       document.addEventListener("DOMContentLoaded", () => {
+        // Initialize AI neural network
+        new AINeuralNetwork();
+
         // Initialize scroll features
         initScrollFeatures();
-        
+
         const logout = document.getElementById("logout");
         const protectedContent = document.getElementById("protectedContent");
 
