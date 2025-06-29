@@ -213,7 +213,13 @@
             <div>
               <label
                 for="folderName"
-                class="block text-sm font-medium text-teal-400"  <!-- Changed to teal-400 -->
+                class="block text-sm font-medium text-teal-400"
+                <!--
+                Changed
+                to
+                teal-400
+                --
+              >
                 >新建文件夾名稱</label
               >
               <input
@@ -245,13 +251,17 @@
 
         <!-- Recommendations Section -->
         <div id="recommendations" class="mb-8 fade-in section-header">
-          <h3 class="text-lg font-semibold mb-2 text-teal-400">AI推薦文件(上載文件)</h3>
+          <h3 class="text-lg font-semibold mb-2 text-teal-400">
+            AI推薦文件(上載文件)
+          </h3>
           <ul id="recommendedFiles" class="space-y-2"></ul>
         </div>
 
         <!-- Specified File Recommendations Section -->
         <div id="specifiedRecommendations" class="mb-8 fade-in section-header">
-          <h3 class="text-lg font-semibold mb-2 text-teal-400">AI推薦文件(指定文件)</h3>
+          <h3 class="text-lg font-semibold mb-2 text-teal-400">
+            AI推薦文件(指定文件)
+          </h3>
           <ul id="specifiedRecommendedFiles" class="space-y-2"></ul>
         </div>
 
@@ -435,11 +445,14 @@
               formData.append("file", file);
 
               try {
-                const response = await fetch("http://localhost:3000/api/upload", {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${token}` },
-                  body: formData,
-                });
+                const response = await fetch(
+                  "http://localhost:3000/api/upload",
+                  {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: formData,
+                  }
+                );
                 const data = await assertResponseOk(response);
                 alert(data.message);
                 uploadForm.reset();
@@ -511,14 +524,17 @@
           }
 
           try {
-            const response = await fetch("http://localhost:3000/api/ai_search", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ query }),
-            });
+            const response = await fetch(
+              "http://localhost:3000/api/ai_search",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ query }),
+              }
+            );
             const data = await assertResponseOk(response);
             renderFiles(data.results, "searchResults");
           } catch (error) {
@@ -538,26 +554,32 @@
           }
           target.innerHTML = "";
           if (!results || results.length === 0) {
-            target.innerHTML =
-              '<li class="text-gray-500">無相關文件</li>';
+            target.innerHTML = '<li class="text-gray-500">無相關文件</li>';
             return;
           }
           results.forEach((file) => {
             console.log("Rendering file:", file); // Debug log
+            console.log("File similarity:", file.similarity); // Debug similarity specifically
             const li = document.createElement("li");
             li.className = "p-2 border rounded";
             li.innerHTML = `
-              <p><strong class="text-teal-400">文件名:</strong> <span class="text-white">${file.name || "未知"}</span></p>  <!-- Changed to teal-400 -->
-              <p><strong class="text-teal-400">擁有者:</strong> <span class="text-white">${file.owner || "未知"}</span></p>  <!-- Changed to teal-400 -->
-              <p><strong class="text-teal-400">共享對象:</strong> <span class="text-white">${file.shared_with || "無"}</span></p>  <!-- Changed to teal-400 -->
-              <p><strong class="text-teal-400">公開共享:</strong> <span class="text-white">${file.shared_with_all ? "是" : "否"}</span></p>  <!-- Changed to teal-400 -->
-              ${
+              <p><strong class="text-teal-400">文件名:</strong> <span class="text-white">${
+                file.name || "未知"
+              }</span></p>  <!-- Changed to teal-400 -->
+              <p><strong class="text-teal-400">擁有者:</strong> <span class="text-white">${
+                file.owner || "未知"
+              }</span></p>  <!-- Changed to teal-400 -->
+              <p><strong class="text-teal-400">共享對象:</strong> <span class="text-white">${
+                file.shared_with || "無"
+              }</span></p>  <!-- Changed to teal-400 -->
+              <p><strong class="text-teal-400">公開共享:</strong> <span class="text-white">${
+                file.shared_with_all ? "是" : "否"
+              }</span></p>  <!-- Changed to teal-400 -->
+              <p><strong class="text-teal-400">相似度:</strong> <span class="text-white">${
                 file.similarity
-                  ? `<p><strong>相似度:</strong> ${(file.similarity * 100).toFixed(
-                      2
-                    )}%</p>`
-                  : ""
-              }
+                  ? (file.similarity * 100).toFixed(2) + "%"
+                  : "無相似度數據"
+              }</span></p>
               <a href="/download/${
                 file.id || ""
               }" class="text-blue-500 hover:underline">下載</a>
@@ -599,19 +621,11 @@
             li.innerHTML = `
               <div>
                 <p><strong class="text-teal-400">文件夾名稱:</strong> ${folder.name}</p>  <!-- Changed to teal-400 -->
-                <a href="folder_files.html?folderId=${
-                  folder.id
-                }" class="view-folder-btn text-blue-500 hover:underline" data-id="${
-              folder.id
-            }">查看文件</a>
+                <a href="folder_files.html?folderId=${folder.id}" class="view-folder-btn text-blue-500 hover:underline" data-id="${folder.id}">查看文件</a>
               </div>
               <div class="space-x-2">
-                <button class="add-file-btn bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600" data-id="${
-                  folder.id
-                }">添加文件</button>
-                <button class="delete-folder-btn bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600" data-id="${
-                  folder.id
-                }">刪除</button>
+                <button class="add-file-btn bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600" data-id="${folder.id}">添加文件</button>
+                <button class="delete-folder-btn bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600" data-id="${folder.id}">刪除</button>
               </div>
             `;
             folderList.appendChild(li);
@@ -619,8 +633,9 @@
             li.querySelector(".add-file-btn").addEventListener("click", () =>
               addFileToFolder(folder.id)
             );
-            li.querySelector(".delete-folder-btn").addEventListener("click", () =>
-              deleteFolder(folder.id)
+            li.querySelector(".delete-folder-btn").addEventListener(
+              "click",
+              () => deleteFolder(folder.id)
             );
           });
         }
@@ -724,9 +739,15 @@
               "p-2 border rounded flex justify-between items-center";
             li.innerHTML = `
               <div>
-                <p><strong class="text-teal-400">文件名:</strong> <span class="text-white">${file.name}</span></p>  <!-- Changed to teal-400 -->
-                <p><strong class="text-teal-400">文件ID:</strong> <span class="text-white">${file.id}</span></p>  <!-- Changed to teal-400 -->
-                <p><strong class="text-teal-400">擁有者:</strong> <span class="text-white">${file.owner}</span></p>  <!-- Changed to teal-400 -->
+                <p><strong class="text-teal-400">文件名:</strong> <span class="text-white">${
+                  file.name
+                }</span></p>  <!-- Changed to teal-400 -->
+                <p><strong class="text-teal-400">文件ID:</strong> <span class="text-white">${
+                  file.id
+                }</span></p>  <!-- Changed to teal-400 -->
+                <p><strong class="text-teal-400">擁有者:</strong> <span class="text-white">${
+                  file.owner
+                }</span></p>  <!-- Changed to teal-400 -->
                 <p><strong class="text-teal-400">公開共享:</strong> <span class="text-white">${
                   file.shared_with_all ? "是" : "否"
                 }</span></p>  <!-- Changed to teal-400 -->
@@ -872,9 +893,12 @@
           if (!token) return;
 
           try {
-            const response = await fetch("http://localhost:3000/api/public_files", {
-              headers: { Authorization: `Bearer ${token}` },
-            });
+            const response = await fetch(
+              "http://localhost:3000/api/public_files",
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
             const data = await assertResponseOk(response);
             renderFiles(data.files, "publicSharedFiles");
           } catch (error) {
@@ -888,9 +912,12 @@
           if (!token) return;
 
           try {
-            const response = await fetch("http://localhost:3000/api/recommend", {
-              headers: { Authorization: `Bearer ${token}` },
-            });
+            const response = await fetch(
+              "http://localhost:3000/api/recommend",
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
             const data = await assertResponseOk(response);
             renderFiles(data.results, "recommendedFiles");
           } catch (error) {
@@ -928,13 +955,14 @@
           if (!token || !protectedContent) return;
 
           try {
-            const response = await fetch("http://localhost:3000/api/protected", {
-              headers: { Authorization: `Bearer ${token}` },
-            });
+            const response = await fetch(
+              "http://localhost:3000/api/protected",
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
             const data = await assertResponseOk(response);
-            document
-              .getElementById("welcomeContent")
-              ?.classList.add("hidden");
+            document.getElementById("welcomeContent")?.classList.add("hidden");
             protectedContent.classList.remove("hidden");
             const userInfo = document.getElementById("userInfo");
             if (userInfo) {
